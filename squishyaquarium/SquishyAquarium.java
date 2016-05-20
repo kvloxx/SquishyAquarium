@@ -1,6 +1,7 @@
 package squishyaquarium;
 
 import processing.core.*;
+import processing.event.KeyEvent;
 import toxi.physics2d.*;
 import toxi.geom.*;
 
@@ -11,9 +12,11 @@ public class SquishyAquarium extends PApplet {
    VerletPhysics2D world;
    float DRAG = 0.01f;
 
-   SquishyBody squash;
+   SquishyBody squash, squesh;
    ArrayList<SquishyBody> squishes;
-   int numSquishes =5;
+   ArrayList<SquishyBody> squoshes;
+   int squashIdx = 0;
+   int numSquishes = 5;
 
    public void settings() {
       size(1000, 800, P2D);
@@ -26,11 +29,18 @@ public class SquishyAquarium extends PApplet {
       world = new VerletPhysics2D(null, 1, DRAG, 1);
       world.setWorldBounds(new Rect(0, 0, width, height));
 
-      squishes=new ArrayList<>();
+      squishes = new ArrayList<>(numSquishes);
+      squoshes = new ArrayList<>(numSquishes);
       for (int i = 0; i < numSquishes; i++) {
-         squishes.add(new SquishyBody(this, world, random(width), random(height)));
+         squash = new SquishyBody(this, world, random(width), random(height));
+         String encoding = squash.encodeBody();
+         squishes.add(squash);
+         squesh = new SquishyBody(this, world, encoding);
+         squoshes.add(squesh);
       }
-      squash = squishes.get(0);
+      squash = squishes.get(squashIdx);
+      squesh = squoshes.get(squashIdx);
+
    }
 
    public void draw() {
@@ -38,34 +48,77 @@ public class SquishyAquarium extends PApplet {
       background(0);
       world.update();
 
-      squishes.forEach(squish->{
-         if(frameCount%squish.strokeInterval==0){
+      squishes.forEach(squish -> {
+         if (frameCount % squish.strokeInterval == 0) {
             squish.stroke();
          }
          squish.display();
       });
+      squoshes.forEach(squosh -> {
+         if (frameCount % squosh.strokeInterval == 0) {
+            squosh.stroke();
+         }
+         squosh.display();
+      });
 
       if (mousePressed) {
 
-         squash.head.lock();
-         squash.head.x = mouseX;
-         squash.head.y = mouseY;
-         squash.head.unlock();
-
+         if (mouseButton == LEFT) {
+            squash.head.lock();
+            squash.head.x = mouseX;
+            squash.head.y = mouseY;
+            squash.head.unlock();
+         }
+         if (mouseButton == RIGHT) {
+            squesh.head.lock();
+            squesh.head.x = mouseX;
+            squesh.head.y = mouseY;
+            squesh.head.unlock();
+         }
       }
    }
 
-   public void keyReleased() {
-      for (int i = 0; i < squishes.size(); i++) {
-         squishes.set(i, new SquishyBody(this, world, random(width), random(height)));
-      }
-      squash=squishes.get(0);
-   }
+   //   public void keyReleased() {
+//      for (int i = 0; i < squishes.size(); i++) {
+//         squishes.set(i, new SquishyBody(this, world, random(width), random(height)));
+//      }
+//      squash=squishes.get(0);
+//   }
 
+
+   @Override
+   public void keyReleased(KeyEvent event) {
+      if (event.getKeyCode() == LEFT) {
+         squashIdx ++;
+         squashIdx %= numSquishes;
+         squash = squishes.get(squashIdx);
+         squesh = squoshes.get(squashIdx);
+         return;
+      }
+      if (event.getKeyCode() == RIGHT) {
+         if(--squashIdx<0) {
+            squashIdx = numSquishes-1;
+         }
+         squash = squishes.get(squashIdx);
+         squesh = squoshes.get(squashIdx);
+         return;
+      }
+
+      squishes = new ArrayList<>(numSquishes);
+      squoshes = new ArrayList<>(numSquishes);
+      for (int i = 0; i < numSquishes; i++) {
+         squash = new SquishyBody(this, world, random(width), random(height));
+         String encoding = squash.encodeBody();
+         squishes.add(squash);
+         squesh = new SquishyBody(this, world, encoding);
+         squoshes.add(squesh);
+      }
+      squash = squishes.get(squashIdx);
+      squesh = squoshes.get(squashIdx);
+   }
 
    public static void main(String _args[]) {
       PApplet.main(new String[]{squishyaquarium.SquishyAquarium.class.getName()});
    }
-
 
 }
