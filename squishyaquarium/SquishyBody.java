@@ -11,7 +11,7 @@ import java.util.List;
  */
 public class SquishyBody {
 
-   private int minNodes = 5;
+   private int minNodes = 7;
    private int nodesRange = 5;
    private int maxNodes = minNodes + nodesRange;
 
@@ -67,7 +67,7 @@ public class SquishyBody {
       this.stroke = makeStroke();
       assignSubtreeStrokes(head);
       this.currentStrokeAction = 0;
-      System.out.println(encodeBody());
+//      System.out.println(encodeBody());
    }
 
    SquishyBody(PApplet p, VerletPhysics2D world, String code) {
@@ -195,6 +195,39 @@ public class SquishyBody {
       this(p, world, p.width / 2.0f, p.height / 2.0f);
    }
 
+   public String stringify() {
+      StringBuilder sb = new StringBuilder();
+      sb.append("[\n#nodes ")
+            .append(nodes.size())
+            .append("\n#springs ")
+            .append(springs.size())
+            .append("\n#strokes ")
+            .append(stroke.size())
+            .append("\nstrength [")
+            .append(boneStr)
+            .append(" ")
+            .append(muscStr)
+            .append(" ")
+            .append(tissStr)
+            .append(" ]\nbone-length [ ")
+            .append(minBoneLength)
+            .append(" ")
+            .append(maxBoneLength)
+            .append(" ]\nbranching-prob ")
+            .append(branchingProb)
+            .append("\nstroke-extend-prob ")
+            .append(strokeExtendProb)
+            .append("\ninvolves-node-prob ")
+            .append(actionInvolvesNodeProb)
+            .append("\nstroke-interval ")
+            .append(strokeInterval)
+            .append("\n")
+            .append(head.stringifySubtree())
+            .append("\n]");
+
+      return sb.toString();
+   }
+
    public String encodeBody() {
       StringBuilder sb = new StringBuilder();
       sb.append("NODES \n");
@@ -288,6 +321,8 @@ public class SquishyBody {
                      bonyNeighborsArr[i].distanceTo(bonyNeighborsArr[j]));
             }
          }
+      });
+      nodes.forEach(thisNode -> {
          nodes.forEach(thatNode -> {
             if (thisNode != thatNode) {
                if (!thisNode.neighbors.contains(thatNode)) {
@@ -333,17 +368,22 @@ public class SquishyBody {
             s = new Spring(parent, child, Spring.Type.BONE, len, len, boneStr, p);
             parent.addBoneChild(child);
             child.addBoneParent(parent);
+            parent.attachSpring(s);
             break;
          case MUSCLE:
             s = new Spring(parent, child, Spring.Type.MUSCLE, len - len * 0.5f, len + len * 0.5f, muscStr, p);
             muscles.add(s);
             parent.addMuscleNeighbor(child);
+            parent.attachSpring(s);
             child.addMuscleNeighbor(parent);
+            child.attachSpring(s);
             break;
          case TISSUE:
             s = new Spring(parent, child, Spring.Type.TISSUE, len, len, tissStr, p);
             parent.addTissueNeighbor(child);
+            parent.attachSpring(s);
             child.addTissueNeighbor(parent);
+            child.attachSpring(s);
             break;
       }
       springs.add(s);

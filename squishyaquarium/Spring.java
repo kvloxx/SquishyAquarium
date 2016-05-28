@@ -14,14 +14,15 @@ public class Spring extends VerletSpring2D implements SquishyBodyPart {
 
 
    private PApplet p;
-   private float str;
-   private float maxLen, minLen;
+   float str;
+   float maxLen, minLen;
    float state;  //between 0 and 1, the current length
 
    enum Type {
       BONE, MUSCLE, TISSUE
    }
-   private Type type;
+
+   Type type;
 
    Spring(VerletParticle2D a, VerletParticle2D b, Type type, float minLen, float maxLen, float str, PApplet p) {
       super(a, b, PApplet.map(0.5f, 0, 1, minLen, maxLen), str);
@@ -67,7 +68,7 @@ public class Spring extends VerletSpring2D implements SquishyBodyPart {
             " " + (type == Type.BONE ? "BONE" : (type == Type.MUSCLE ? "MUSCLE" : "TISSUE")) +
             " " + ((Node) a).getID() +
             " " + ((Node) b).getID() +
-            " " + (maxLen + minLen)/2.0f +
+            " " + (maxLen + minLen) / 2.0f +
             " ";
    }
 }

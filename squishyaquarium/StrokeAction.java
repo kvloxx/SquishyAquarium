@@ -5,7 +5,7 @@ package squishyaquarium;
  */
 class StrokeAction {
    SquishyBodyPart obj;
-   private float state;
+   float state;
 
    StrokeAction(SquishyBodyPart obj, float state) {
       this.obj = obj;

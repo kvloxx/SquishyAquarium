@@ -30,7 +30,12 @@ public class SquishyAquarium extends PApplet {
       world.setWorldBounds(new Rect(0, 0, width, height));
 
       squishes = new ArrayList<>(numSquishes);
-      squoshes = new ArrayList<>(numSquishes);
+      squash = new SquishyBody(this, world);
+      squishes.add(squash);
+
+      System.out.println("Subtree Stringification: ");
+      System.out.println(squash.stringify());
+      /*squoshes = new ArrayList<>(numSquishes);
       for (int i = 0; i < numSquishes; i++) {
          squash = new SquishyBody(this, world, random(width), random(height));
          String encoding = squash.encodeBody();
@@ -39,7 +44,7 @@ public class SquishyAquarium extends PApplet {
          squoshes.add(squesh);
       }
       squash = squishes.get(squashIdx);
-      squesh = squoshes.get(squashIdx);
+      squesh = squoshes.get(squashIdx);*/
 
    }
 
@@ -54,12 +59,13 @@ public class SquishyAquarium extends PApplet {
          }
          squish.display();
       });
-      squoshes.forEach(squosh -> {
+
+      /*squoshes.forEach(squosh -> {
          if (frameCount % squosh.strokeInterval == 0) {
             squosh.stroke();
          }
          squosh.display();
-      });
+      });*/
 
       if (mousePressed) {
 
@@ -89,22 +95,22 @@ public class SquishyAquarium extends PApplet {
    @Override
    public void keyReleased(KeyEvent event) {
       if (event.getKeyCode() == LEFT) {
-         squashIdx ++;
+         squashIdx++;
          squashIdx %= numSquishes;
          squash = squishes.get(squashIdx);
-         squesh = squoshes.get(squashIdx);
+//         squesh = squoshes.get(squashIdx);
          return;
       }
       if (event.getKeyCode() == RIGHT) {
-         if(--squashIdx<0) {
-            squashIdx = numSquishes-1;
+         if (--squashIdx < 0) {
+            squashIdx = numSquishes - 1;
          }
          squash = squishes.get(squashIdx);
-         squesh = squoshes.get(squashIdx);
+//         squesh = squoshes.get(squashIdx);
          return;
       }
 
-      squishes = new ArrayList<>(numSquishes);
+      /*squishes = new ArrayList<>(numSquishes);
       squoshes = new ArrayList<>(numSquishes);
       for (int i = 0; i < numSquishes; i++) {
          squash = new SquishyBody(this, world, random(width), random(height));
@@ -114,7 +120,7 @@ public class SquishyAquarium extends PApplet {
          squoshes.add(squesh);
       }
       squash = squishes.get(squashIdx);
-      squesh = squoshes.get(squashIdx);
+      squesh = squoshes.get(squashIdx);*/
    }
 
    public static void main(String _args[]) {
