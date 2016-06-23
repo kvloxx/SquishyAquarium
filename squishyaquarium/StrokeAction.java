@@ -20,8 +20,4 @@ class StrokeAction {
       return obj instanceof Node;
    }
 
-   @Override
-   public String toString() {
-      return " " + (isNode()? "n":"s") + " " + obj.getID() + " " + state + " ";
-   }
 }

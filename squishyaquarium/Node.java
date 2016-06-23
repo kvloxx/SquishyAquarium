@@ -1,15 +1,16 @@
 package squishyaquarium;
 
 import processing.core.PApplet;
+import sun.reflect.generics.tree.Tree;
 import toxi.geom.Vec2D;
 import toxi.physics2d.VerletParticle2D;
+import toxi.physics2d.VerletPhysics2D;
 
 import java.util.*;
 
 import static processing.core.PApplet.map;
 
 class Node extends VerletParticle2D implements SquishyBodyPart {
-   private final String ID = UUID.randomUUID().toString();
 
    private PApplet p;
 
@@ -18,6 +19,7 @@ class Node extends VerletParticle2D implements SquishyBodyPart {
    boolean isHead = false;
    int fill;
    float d = 10;
+   Vec2D normal;
 
    Node boneParent;
    Set<Node> neighbors;
@@ -32,24 +34,33 @@ class Node extends VerletParticle2D implements SquishyBodyPart {
 
    Node(float x, float y, int fill, PApplet p) {
       super(new Vec2D(x, y));
+      this.normal = new Vec2D(x, y);
       this.p = p;
       this.fill = fill;
       this.w = getWeight();
+      this.state = 0.5f;
       this.neighbors = new LinkedHashSet<>();
       this.boneChildren = new LinkedHashSet<>();
       this.boneNeighbors = new LinkedHashSet<>();
       this.muscleNeighbors = new LinkedHashSet<>();
-      this.state = 0.5f;
-      this.subtreeStroke = new ArrayList<>();
       this.springsAttached = new LinkedHashSet<>();
+      this.subtreeStroke = new ArrayList<>();
    }
 
-   private Node(float x, float y, PApplet p) {
-      this(x, y, 255, p);
+   Node(float x, float y, PApplet p) {
+      this(x, y, p.color(255), p);
    }
 
    Node(PApplet p) {
       this(0, 0, p);
+   }
+
+   public void updateData(float x, float y, float w) {   //"updata"
+      this.x=x;
+      this.y=y;
+      this.normal = new Vec2D(x, y);
+      this.w=w;
+      this.changeState(this.state);
    }
 
    void display() {
@@ -91,7 +102,7 @@ class Node extends VerletParticle2D implements SquishyBodyPart {
       neighbors.add(n);
    }
 
-   public Set<Node> getSubtreeNodes() {
+   public Set<Node> getSubtreeNodes() {   //set includes current root node
       LinkedHashSet<Node> ret = new LinkedHashSet<>();
       ret.add(this);
       for (Node child : boneChildren) {
@@ -108,13 +119,13 @@ class Node extends VerletParticle2D implements SquishyBodyPart {
       StringBuilder sb = new StringBuilder();
       Set<Node> subtreeNodes = getSubtreeNodes();
       Set<Spring> subtreeSprings = getSubtreeSprings(subtreeNodes);
+
       Map<SquishyBodyPart, String> names = new HashMap<>();
-//      Map<? extends SquishyBodyPart, String> names = new HashMap<>();
 
       int i = 0;
       names.put(this, "@" + i++);
       for (Node n : subtreeNodes) {
-         names.put(((SquishyBodyPart) n), "@" + i++);
+         names.put(n, "@" + i++);
       }
 
       int bCount = 0;
@@ -122,12 +133,8 @@ class Node extends VerletParticle2D implements SquishyBodyPart {
       int tCount = 0;
 
       for (Spring s : subtreeSprings) {
-         names.put(((SquishyBodyPart) s),
-               "$" + (s.type == Spring.Type.BONE ?
-                     ("B" + bCount++) :
-                     (s.type == Spring.Type.MUSCLE ?
-                           ("M" + mCount++) :
-                           ("T" + tCount++))));
+         names.put(s, "$" + (s.type == Spring.Type.BONE ? ("B" + bCount++) :
+                     (s.type == Spring.Type.MUSCLE ? ("M" + mCount++) : ("T" + tCount++))));
       }
 
       sb.append("{ ")
@@ -147,16 +154,21 @@ class Node extends VerletParticle2D implements SquishyBodyPart {
          }
          sb.append("} ");
       }
+
       return sb.toString();
    }
 
    private Set<Spring> getSubtreeSprings(Set<Node> subtreeNodes) {
       Set<Spring> ret = new LinkedHashSet<>();
-      ret.addAll(springsAttached);
 
-      for (Node subtreeNode : subtreeNodes) {
-         ret.addAll(subtreeNode.springsAttached);
+      for (Node node : subtreeNodes) {
+         for (Spring spring : node.springsAttached) {
+            if (subtreeNodes.contains(spring.a) && subtreeNodes.contains(spring.b)) {
+               ret.add(spring);
+            }
+         }
       }
+
       return ret;
    }
 
@@ -212,21 +224,8 @@ class Node extends VerletParticle2D implements SquishyBodyPart {
    }
 
    @Override
-   public String getID() {
-      return ID;
-   }
-
-   @Override
    public String toString() {
-      return " " + ID +
-            " " + x +
-            " " + y +
-            " " + w +
-            " " + state +
-            " " + isHead +
-            " " + fill +
-            " " + d +
-            " " + stringifySubtreeStroke() + "_END_ ";
+      return "Node{"+x+", "+y+", : "+w+"}";
    }
 
    public void attachSpring(Spring s) {

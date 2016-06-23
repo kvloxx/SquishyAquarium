@@ -5,6 +5,7 @@ import toxi.physics2d.VerletPhysics2D;
 
 import java.util.*;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Created by kvloxx
@@ -145,54 +146,27 @@ public class SquishyBody {
       scan.close();
    }
 
-   /* public SquishyBody(SquishyBody s){
-       this.minNodes = s.minNodes;
-       this.nodesRange = s.nodesRange;
-       this.maxNodes = s.maxNodes;
-
-       this.maxBoneLength = s.maxBoneLength;
-       this.minBoneLength = s.minBoneLength;
-       this.branchingProb = s.branchingProb;
-       this.minStrokeActions = s.minStrokeActions;
-       this.strokeExtendProb = s.strokeExtendProb;
-       this.actionInvolvesNodeProb = s.actionInvolvesNodeProb;
-
-       this.boneStr = s.boneStr;
-       this.muscStr = s.muscStr;
-       this.tissStr = s.tissStr;
-       this.p = s.p;
-       this.world = s.world;
-
-       this.nodes = new LinkedHashSet<>();
-       this.springs = new LinkedHashSet<>();
-       this.muscles = new LinkedHashSet<>();
-
-       this.nodesArray = new Node[0];
-
-       for (int i = 0; i < s.nodesArray.length; i++) {
-          Node copy = new Node(s.nodesArray[i]);
-          nodes.add(copy);
-
-       }
-       this.musclesArray = muscles.toArray(new Spring[0]);
-
-       *//*this.nodes = nodes;
-      this.springs = springs;
-      this.muscles = muscles;
-      this.head = head;
-      this.nodesArray = nodesArray;
-      this.musclesArray = musclesArray;
-      this.maxStrokeInterval = maxStrokeInterval;
-      this.minStrokeInterval = minStrokeInterval;
-      this.strokeInterval = strokeInterval;
-      this.stroke = stroke;
-      this.currentStrokeAction = currentStrokeAction;*//*
-   }
-
-
-*/
    public SquishyBody(PApplet p, VerletPhysics2D world) {
       this(p, world, p.width / 2.0f, p.height / 2.0f);
+   }
+
+   public SquishyBody(Set<Node> nodes, Set<Spring> springs, PApplet p, VerletPhysics2D world) {
+      this.p = p;
+      this.world = world;
+      this.nodes = nodes;
+      this.springs = springs;
+      this.muscles = new LinkedHashSet<>();
+      this.muscles.addAll(springs.stream().filter(spring -> spring.type == Spring.Type.MUSCLE).collect(Collectors.toList()));
+      Iterator<Node> nodeIterator = nodes.iterator();
+      head = nodeIterator.next();
+      head.isHead = true;
+      head.boneParent = null;
+      this.nodesArray = nodes.toArray(new Node[0]);
+      this.musclesArray = muscles.toArray(new Spring[0]);
+      this.stroke = makeStroke();
+      assignSubtreeStrokes(head);
+      this.currentStrokeAction = 0;
+
    }
 
    public String stringify() {
@@ -222,7 +196,7 @@ public class SquishyBody {
             .append("\nstroke-interval ")
             .append(strokeInterval)
             .append("\n")
-            .append(head.stringifySubtree())
+            .append(head.stringifySubtree(true))
             .append("\n]");
 
       return sb.toString();
@@ -322,18 +296,18 @@ public class SquishyBody {
             }
          }
       });
-      nodes.forEach(thisNode -> {
-         nodes.forEach(thatNode -> {
-            if (thisNode != thatNode) {
-               if (!thisNode.neighbors.contains(thatNode)) {
-                  connect(Spring.Type.TISSUE,
-                        thisNode,
-                        thatNode,
-                        thisNode.distanceTo(thatNode));
+      nodes.forEach(thisNode ->
+            nodes.forEach(thatNode -> {
+               if (thisNode != thatNode) {
+                  if (!thisNode.neighbors.contains(thatNode)) {
+                     connect(Spring.Type.TISSUE,
+                           thisNode,
+                           thatNode,
+                           thisNode.distanceTo(thatNode));
+                  }
                }
-            }
-         });
-      });
+            })
+      );
    }
 
 /*   private void connectTissue(Node from, Node to, float len) {
@@ -396,12 +370,18 @@ public class SquishyBody {
       ArrayList<StrokeAction> tmpActions = new ArrayList<>();
       for (int i = 0; i < minStrokeActions || p.random(1) < strokeExtendProb; i++) {
          if (p.random(1) < actionInvolvesNodeProb) {
-            int index = (int) (p.random(1) * nodesArray.length);
+            if (nodesArray.length == 0) {
+               break;
+            }
+            int index = (int) (p.random(nodesArray.length));
             for (int j = 0; j < 2 || p.random(1) < strokeExtendProb; j++) {   //at least 2 actions per body part
                tmpActions.add(new StrokeAction(nodesArray[index], p.random(1)));
             }
          } else {
-            int index = (int) (p.random(1) * musclesArray.length);
+            if (musclesArray.length == 0) {
+               break;
+            }
+            int index = (int) (p.random(musclesArray.length));
             for (int j = 0; j < 2 || p.random(1) < strokeExtendProb; j++) {
                tmpActions.add(new StrokeAction(musclesArray[index], p.random(1)));
             }
@@ -447,13 +427,15 @@ public class SquishyBody {
    }
 
    public void display() {
-      springs.forEach(spring -> spring.display());
-      nodes.forEach(node -> node.display());
+      springs.forEach(Spring::display);
+      nodes.forEach(Node::display);
    }
 
    public void stroke() {
-      stroke.get(currentStrokeAction).executeAction();
-      currentStrokeAction = (currentStrokeAction + 1) % stroke.size();
+      if (stroke != null && stroke.get(currentStrokeAction) != null) {
+         stroke.get(currentStrokeAction).executeAction();
+         currentStrokeAction = (currentStrokeAction + 1) % stroke.size();
+      }
    }
 
 //   public SquishyBody mateWith(SquishyBody mate) {

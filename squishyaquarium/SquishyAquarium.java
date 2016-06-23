@@ -33,8 +33,18 @@ public class SquishyAquarium extends PApplet {
       squash = new SquishyBody(this, world);
       squishes.add(squash);
 
-      System.out.println("Subtree Stringification: ");
-      System.out.println(squash.stringify());
+//      System.out.println("Subtree Stringification: ");
+//      String s=squash.head.stringifySubtree();
+//      System.out.println("s = " + s);
+//      System.out.println("\nReconstruction:");
+      for (Node node : squash.head.getSubtreeNodes()) {
+         if (!node.boneChildren.isEmpty()) {
+            TreeParser tp = new TreeParser(node.stringifySubtree(), this, world);
+            squishes.add(tp.parseSubtree());
+         }
+      }
+
+
       /*squoshes = new ArrayList<>(numSquishes);
       for (int i = 0; i < numSquishes; i++) {
          squash = new SquishyBody(this, world, random(width), random(height));
@@ -53,12 +63,15 @@ public class SquishyAquarium extends PApplet {
       background(0);
       world.update();
 
+               if (squishes != null) {
       squishes.forEach(squish -> {
-         if (frameCount % squish.strokeInterval == 0) {
-            squish.stroke();
-         }
-         squish.display();
-      });
+
+                  if (frameCount % squish.strokeInterval == 0) {
+                     squish.stroke();
+                  }
+                  squish.display();
+               });
+            }
 
       /*squoshes.forEach(squosh -> {
          if (frameCount % squosh.strokeInterval == 0) {
@@ -75,12 +88,12 @@ public class SquishyAquarium extends PApplet {
             squash.head.y = mouseY;
             squash.head.unlock();
          }
-         if (mouseButton == RIGHT) {
-            squesh.head.lock();
-            squesh.head.x = mouseX;
-            squesh.head.y = mouseY;
-            squesh.head.unlock();
-         }
+//         if (mouseButton == RIGHT) {
+//            squesh.head.lock();
+//            squesh.head.x = mouseX;
+//            squesh.head.y = mouseY;
+//            squesh.head.unlock();
+//         }
       }
    }
 
@@ -109,6 +122,19 @@ public class SquishyAquarium extends PApplet {
 //         squesh = squoshes.get(squashIdx);
          return;
       }
+
+      world = new VerletPhysics2D(null, 1, DRAG, 1);
+      squishes = new ArrayList<>(numSquishes);
+      squash = new SquishyBody(this, world);
+      squishes.add(squash);
+      System.out.println("lol");
+      System.out.println(squash.stringify());
+//      for (Node node : squash.head.getSubtreeNodes()) {
+//         if (!node.boneChildren.isEmpty()) {
+//            TreeParser tp = new TreeParser(node.stringifySubtree(true), this, world);
+//            squishes.add(tp.parseSubtree());
+//         }
+//      }
 
       /*squishes = new ArrayList<>(numSquishes);
       squoshes = new ArrayList<>(numSquishes);

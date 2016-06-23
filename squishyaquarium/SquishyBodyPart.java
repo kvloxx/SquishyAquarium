@@ -5,5 +5,4 @@ package squishyaquarium;
  */
 interface SquishyBodyPart {
    void changeState(float state);
-   String getID();
 }

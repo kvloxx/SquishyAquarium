@@ -40,12 +40,13 @@ public class Spring extends VerletSpring2D implements SquishyBodyPart {
             p.stroke(255);
             break;
          case MUSCLE:
-//            p.stroke(229,115,115,p.map(state, 0, 1, 255, 0));
-            p.stroke(200, 0, 0);
+            p.stroke(229,115,115,p.map(state, 0, 1, 255, 0));
+//            p.stroke(200, 0, 0);
             break;
          case TISSUE:
-            p.stroke(50, 50, 50, 200);
-            break;
+            return;
+//            p.stroke(50, 50, 50, 200);
+//            break;
       }
       p.line(this.a.x, this.a.y, this.b.x, this.b.y);
    }
@@ -58,17 +59,11 @@ public class Spring extends VerletSpring2D implements SquishyBodyPart {
    }
 
    @Override
-   public String getID() {
-      return ID;
-   }
-
-   @Override
    public String toString() {
-      return " " + ID +
-            " " + (type == Type.BONE ? "BONE" : (type == Type.MUSCLE ? "MUSCLE" : "TISSUE")) +
-            " " + ((Node) a).getID() +
-            " " + ((Node) b).getID() +
+      return "["+(type == Type.BONE ? "BONE" : (type == Type.MUSCLE ? "MUSCLE" : "TISSUE")) +
+            " " + ((Node) a)+
+            " " + ((Node) b)+
             " " + (maxLen + minLen) / 2.0f +
-            " ";
+            "] ";
    }
 }
