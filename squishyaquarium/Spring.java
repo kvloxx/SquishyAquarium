@@ -4,6 +4,7 @@ import processing.core.PApplet;
 import toxi.physics2d.VerletParticle2D;
 import toxi.physics2d.VerletSpring2D;
 
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -37,7 +38,7 @@ public class Spring extends VerletSpring2D implements SquishyBodyPart {
    void display() {
       switch (type) {
          case BONE:
-            p.stroke(255);
+            p.stroke(0xff039189);
             break;
          case MUSCLE:
             p.stroke(229,115,115,p.map(state, 0, 1, 255, 0));
@@ -45,7 +46,9 @@ public class Spring extends VerletSpring2D implements SquishyBodyPart {
             break;
          case TISSUE:
             return;
-//            p.stroke(50, 50, 50, 200);
+//            p.stroke(0xE450E4);
+
+//            p.stroke(50, 250, 50, 200);
 //            break;
       }
       p.line(this.a.x, this.a.y, this.b.x, this.b.y);
@@ -61,9 +64,43 @@ public class Spring extends VerletSpring2D implements SquishyBodyPart {
    @Override
    public String toString() {
       return "["+(type == Type.BONE ? "BONE" : (type == Type.MUSCLE ? "MUSCLE" : "TISSUE")) +
-            " " + ((Node) a)+
-            " " + ((Node) b)+
-            " " + (maxLen + minLen) / 2.0f +
+            " " + getA()+
+            " " + getB()+
+            " " + getAverageLen() +
             "] ";
+   }
+
+   public boolean isBone(){
+      return this.type == Type.BONE;
+   }
+   public boolean isMuscle(){
+      return this.type == Type.MUSCLE;
+   }
+   public boolean isTissue(){
+      return this.type == Type.TISSUE;
+   }
+
+   public String getDataString(){
+      return new StringBuilder()
+            .append("[ ")
+            .append(this.minLen)
+            .append(" ")
+            .append(this.maxLen)
+            .append(" ")
+            .append(this.str)
+            .append(" ] ").toString();
+   }
+
+   public boolean isContainedIn(Set<Node> nodeSet) {
+      return nodeSet.contains(this.getA()) && nodeSet.contains(this.getB());
+   }
+   public Node getA() {
+      return ((Node) a);
+   }
+   public Node getB() {
+      return ((Node) b);
+   }
+   public float getAverageLen() {
+      return (minLen + maxLen) / 2.0f;
    }
 }

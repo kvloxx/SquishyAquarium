@@ -1,9 +1,11 @@
 package squishyaquarium;
 
+import java.util.Set;
+
 /**
  * Created by kvloxx
  */
-class StrokeAction {
+public class StrokeAction {
    SquishyBodyPart obj;
    float state;
 
@@ -20,4 +22,7 @@ class StrokeAction {
       return obj instanceof Node;
    }
 
+   boolean actionIsContainedIn(Set<Node> nodeSet) {
+      return obj.isContainedIn(nodeSet);
+   }
 }

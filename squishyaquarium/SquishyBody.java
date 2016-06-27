@@ -11,22 +11,22 @@ import java.util.stream.Collectors;
  * Created by kvloxx
  */
 public class SquishyBody {
+   //   @formatter:off
+   private int minNodes                 = 7;
+   private int nodesRange               = 5;
+   private int maxNodes                 = minNodes + nodesRange;
 
-   private int minNodes = 7;
-   private int nodesRange = 5;
-   private int maxNodes = minNodes + nodesRange;
+   private float minBoneLength          = 25;
+   private float maxBoneLength          = 75;
+   private float branchingProb          = 0.5f;
 
-   private float minBoneLength = 50;
-   private float maxBoneLength = 75;
-   private float branchingProb = 0.5f;
-
-   private int minStrokeActions = 10;
-   private float strokeExtendProb = 0.5f;
+   private int minStrokeActions         = 10;
+   private float strokeExtendProb       = 0.5f;
    private float actionInvolvesNodeProb = 0.5f;
 
-   private float boneStr = 0.9f;
-   private float muscStr = 0.2f;
-   private float tissStr = 0.01f;
+   private float boneStr                = 0.9f;
+   private float muscStr                = 0.2f;
+   private float tissStr                = 0.01f;
 
    private PApplet p;
    private VerletPhysics2D world;
@@ -39,13 +39,209 @@ public class SquishyBody {
    private Node[] nodesArray;
    private Spring[] musclesArray;
 
-   private int maxStrokeInterval = 10;
-   private int minStrokeInterval = 2;
+   private int maxStrokeInterval        = 10;
+   private int minStrokeInterval        = 2;
    int strokeInterval;
 
    private List<StrokeAction> stroke;
    private int currentStrokeAction;
+   public Tree tree;
+//   @formatter:on
 
+   public void setConstants(float boneStr, float muscStr, float tissStr, float minBoneLength, float maxBoneLength,
+                            float branchingProb, float strokeExtendProb, float actionInvolvesNodeProb, int interval) {
+      this.boneStr = boneStr;
+      this.muscStr = muscStr;
+      this.tissStr = tissStr;
+      this.minBoneLength = minBoneLength;
+      this.maxBoneLength = maxBoneLength;
+      this.branchingProb = branchingProb;
+      this.strokeExtendProb = strokeExtendProb;
+      this.actionInvolvesNodeProb = actionInvolvesNodeProb;
+      this.strokeInterval = interval;
+   }
+
+   public static SquishyBody[] mate(SquishyBody mate1, SquishyBody mate2, PApplet p, VerletPhysics2D world) {
+      Spring bone1 = mate1.getRandomBone();
+      Spring bone2 = mate2.getRandomBone();
+//      Set<Node> limb1Nodes = bone1.getB().getSubtreeNodes();
+//      Set<Node> body1Nodes = mate1.nodes
+//            .parallelStream()
+//            .filter(node -> !limb1Nodes.contains(node))
+//            .collect(Collectors.toCollection(LinkedHashSet::new));
+//
+//      String limb1String = bone1.getB().stringifySubtreeBonesAndMuscle(mate1.getStrokeSubset(limb1Nodes), null);
+//      String body1String = mate1.head.stringifySubtree(body1Nodes, mate1.getBonesAndMuscles(limb1Nodes), mate1
+//            .getStrokeSubset(body1Nodes));
+
+      Tree limb1 = mate1.tree.copySubtreeAt(bone1.getB(), p, world);
+//      Tree body1 = mate1.tree.copyTreeMinusBranchAt(bone1.getB(), p, world);
+      System.out.println("limb1String = \n" + limb1.toString());
+//      System.out.println("body1String = \n" + body1.toString());
+
+//      Tree limb2 = mate2.tree.copySubtreeAt(bone2.getB(), p, world);
+//      Tree body2 = mate2.tree.copyTreeMinusBranchAt(bone2.getB(), p, world);
+//      System.out.println("limb2String = \n" + limb2.toString());
+//      System.out.println("body2String = \n" + body2.toString());
+
+//      SquishyBody[] mates = {new SquishyBody(limb1, p, world), new SquishyBody(body1, p, world)};
+      SquishyBody[] mates = {new SquishyBody(limb1, p, world)};
+
+//      mates = {};
+      System.out.println("limb1 = " + limb1);
+//      System.out.println("body1 = " + body1);
+
+      bone1.getA().d = 20;
+      bone1.getB().d = 20;
+
+      return mates;
+
+//      SquishyBody offspring1 = copySkeleton(mate1, p, world);
+//      SquishyBody offspring2 = copySkeleton(mate2, p, world);
+//
+//      world.removeSpring(bone1);
+//      world.removeSpring(bone2);
+//      offspring1.springs.remove(bone1);
+//      offspring2.springs.remove(bone2);
+//      Set<Node> subNodes1 = bone1.getB().getSubtreeNodes();
+//      Set<Node> subNodes2 = bone2.getB().getSubtreeNodes();
+//      offspring1.nodes.removeAll(subNodes1);
+//      offspring2.nodes.removeAll(subNodes2);
+//      bone1.getA().boneChildren.remove(bone1.getB());
+//      bone1.getA().neighbors.remove(bone1.getB());
+//      bone2.getA().boneChildren.remove(bone2.getB());
+//      bone2.getA().neighbors.remove(bone2.getB());
+//      bone1.getB().boneParent = null;
+//      bone1.getB().neighbors.remove(bone1.getA());
+//      bone2.getB().boneParent = null;
+//      bone2.getB().neighbors.remove(bone2.getA());
+//
+//      Node b2=bone2.getB();
+//      Node a2=bone2.getA();
+//      Vec2D span2 = b2.sub(a2);
+//      Node a1=bone1.getA();
+//      Vec2D newLoc = a1.add(span2);
+//      Vec2D diff = newLoc.sub(a2);
+//      for (Node node : subNodes2) {
+//         node.set(node.normal.add(diff));
+//         node.recordNormal();
+//         offspring1.nodes.add(node);
+//      }
+//
+//      offspring1.connect(Spring.Type.BONE, bone1.getA(), bone2.getB(), a1.distanceTo(b2));
+//      Node b1=bone1.getB();
+////      Vec2D span1 = b1.sub(a1);
+////      newLoc = a2.add(span1);
+////      diff = newLoc.sub(a1);
+////      for (Node node : subNodes2) {
+////         node.set(node.normal.add(diff));
+////         node.recordNormal();
+////         offspring2.nodes.add(node);
+////      }
+//      offspring2.connect(Spring.Type.BONE, bone2.getA(), bone1.getB(), a2.distanceTo(b1));
+//      offspring2.nodes.addAll(subNodes1);
+//      for (Node node : offspring1.nodes) {
+//         node.scaleVelocity(0);
+//         node.fill = p.color(00, 200, 100);
+//      }
+//      for (Node node : offspring2.nodes) {
+//         node.scaleVelocity(0);
+//         node.fill = p.color(200, 100, 50);
+//      }
+//
+//      bone1.getA().fill = p.color(200, 0, 0);
+//      bone1.getB().fill = p.color(200, 0, 0);
+//      bone2.getA().fill = p.color(0, 0, 200);
+//      bone2.getB().fill = p.color(0, 0, 200);
+//
+//      offspring1.fleshOut(offspring1.nodes);
+//      offspring2.fleshOut(offspring2.nodes);
+//
+//      SquishyBody[] ret = {offspring1, offspring2};
+//      return ret;
+   }
+/*
+   public static SquishyBody[] mate(SquishyBody mate1, SquishyBody mate2, PApplet p, VerletPhysics2D world) {
+      SquishyBody offspring1 = copySkeleton(mate1, p, world);
+      SquishyBody offspring2 = copySkeleton(mate2, p, world);
+      Spring bone1 = offspring1.getRandomBone();
+      Spring bone2 = offspring2.getRandomBone();
+
+      world.removeSpring(bone1);
+      world.removeSpring(bone2);
+      offspring1.springs.remove(bone1);
+      offspring2.springs.remove(bone2);
+      Set<Node> subNodes1 = bone1.getB().getSubtreeNodes();
+      Set<Node> subNodes2 = bone2.getB().getSubtreeNodes();
+      offspring1.nodes.removeAll(subNodes1);
+      offspring2.nodes.removeAll(subNodes2);
+      bone1.getA().boneChildren.remove(bone1.getB());
+      bone1.getA().neighbors.remove(bone1.getB());
+      bone2.getA().boneChildren.remove(bone2.getB());
+      bone2.getA().neighbors.remove(bone2.getB());
+      bone1.getB().boneParent = null;
+      bone1.getB().neighbors.remove(bone1.getA());
+      bone2.getB().boneParent = null;
+      bone2.getB().neighbors.remove(bone2.getA());
+
+      Node b2=bone2.getB();
+      Node a2=bone2.getA();
+      Vec2D span2 = b2.sub(a2);
+      Node a1=bone1.getA();
+      Vec2D newLoc = a1.add(span2);
+      Vec2D diff = newLoc.sub(a2);
+      for (Node node : subNodes2) {
+         node.set(node.normal.add(diff));
+         node.recordNormal();
+         offspring1.nodes.add(node);
+      }
+
+      offspring1.connect(Spring.Type.BONE, bone1.getA(), bone2.getB(), a1.distanceTo(b2));
+      Node b1=bone1.getB();
+//      Vec2D span1 = b1.sub(a1);
+//      newLoc = a2.add(span1);
+//      diff = newLoc.sub(a1);
+//      for (Node node : subNodes2) {
+//         node.set(node.normal.add(diff));
+//         node.recordNormal();
+//         offspring2.nodes.add(node);
+//      }
+      offspring2.connect(Spring.Type.BONE, bone2.getA(), bone1.getB(), a2.distanceTo(b1));
+      offspring2.nodes.addAll(subNodes1);
+      for (Node node : offspring1.nodes) {
+         node.scaleVelocity(0);
+         node.fill = p.color(00, 200, 100);
+      }
+      for (Node node : offspring2.nodes) {
+         node.scaleVelocity(0);
+         node.fill = p.color(200, 100, 50);
+      }
+
+      bone1.getA().fill = p.color(200, 0, 0);
+      bone1.getB().fill = p.color(200, 0, 0);
+      bone2.getA().fill = p.color(0, 0, 200);
+      bone2.getB().fill = p.color(0, 0, 200);
+
+      offspring1.fleshOut(offspring1.nodes);
+      offspring2.fleshOut(offspring2.nodes);
+
+      SquishyBody[] ret = {offspring1, offspring2};
+      return ret;
+   }
+*/
+
+//   public static SquishyBody copySkeleton(SquishyBody orig, PApplet p, VerletPhysics2D world) {
+//      String skeleString = orig.head.stringifySubtreeSkeleton();
+//      SquishyBody ret = new TreeParser(skeleString, p, world).parseSubtree();
+//     /* System.out.println("------------Parsed Result------------");
+//      System.out.println(ret.stringify());
+//      System.out.println("------------End Parsed Result------------");*/
+//      return ret;
+//   }
+
+   public SquishyBody(Tree tree, PApplet p, VerletPhysics2D world) {
+      this(tree.nodes, tree.springs, tree.stroke, p, world);
+   }
 
    public SquishyBody(PApplet p, VerletPhysics2D world, float headX, float headY) {
       this.p = p;
@@ -54,96 +250,38 @@ public class SquishyBody {
       this.springs = new LinkedHashSet<>();
       this.muscles = new LinkedHashSet<>();
 
+//      System.out.println("growin nodes.");
       growNodes(nodes);
+//      System.out.println("Dun growin nodes.");
       head.x = headX;
       head.y = headY;
+      System.out.println("ossify start");
       ossify(nodes);
+      System.out.println("ossify ended");
+//      System.out.println("start 2 fleshout");
       fleshOut(nodes);
+//      System.out.println("and done fleshing out.");
 
+//      System.out.println("scaling velocity");
       nodes.forEach(node -> node.scaleVelocity(0));
+//      System.out.println("done scaling.");
 
       this.nodesArray = nodes.toArray(new Node[0]);
       this.musclesArray = muscles.toArray(new Spring[0]);
 
+      System.out.println("calling make stroke");
       this.stroke = makeStroke();
+//      System.out.println("make stroke exited");
       assignSubtreeStrokes(head);
       this.currentStrokeAction = 0;
-//      System.out.println(encodeBody());
+//      System.out.println("make the tree ");
+      this.tree = new Tree(head, nodes, springs, stroke);
+//      System.out.println("now it's done.");
    }
 
-   SquishyBody(PApplet p, VerletPhysics2D world, String code) {
-      this.p = p;
-      this.world = world;
-      this.nodes = new LinkedHashSet<>();
-      this.springs = new LinkedHashSet<>();
-      this.muscles = new LinkedHashSet<>();
-      HashMap<String, Node> newNodes = new HashMap<>();
-      HashMap<String, Spring> newSprings = new HashMap<>();
-
-      Scanner scan = new Scanner(code);
-      System.out.println(scan.next());   //"NODES"
-      String s;
-      while (!(s = scan.next()).equals("SPRINGS")) {
-         Node n = new Node(p);
-         newNodes.put(s, n);
-         n.x = Float.parseFloat(scan.next());
-         n.y = Float.parseFloat(scan.next());
-         n.w = Float.parseFloat(scan.next());
-         n.changeState(Float.parseFloat(scan.next()));
-         n.isHead = Boolean.parseBoolean(scan.next());
-         n.fill = Integer.parseInt(scan.next());
-         n.d = Float.parseFloat(scan.next());
-         n.subtreeStroke = new ArrayList<>();
-         n.subStrokeStrList = new ArrayList<>();
-         while (!(s = scan.next()).equals("_END_")) {
-            n.subStrokeStrList.add(s);
-         }
-         nodes.add(n);
-         world.addParticle(n);
-      }
-      while (true) {
-         s = scan.next();
-         if (s.equals("DATA")) {
-            break;
-         }
-         Spring sp = connect(
-               Spring.Type.valueOf(scan.next()),
-               newNodes.get(scan.next()),
-               newNodes.get(scan.next()),
-               Float.parseFloat(scan.next()));
-         newSprings.put(s, sp);
-      }
-      this.minNodes = Integer.parseInt(scan.next());
-      this.nodesRange = Integer.parseInt(scan.next());
-      this.maxNodes = Integer.parseInt(scan.next());
-      this.minBoneLength = Float.parseFloat(scan.next());
-      this.maxBoneLength = Float.parseFloat(scan.next());
-      this.branchingProb = Float.parseFloat(scan.next());
-      this.minStrokeActions = Integer.parseInt(scan.next());
-      this.strokeExtendProb = Float.parseFloat(scan.next());
-      this.actionInvolvesNodeProb = Float.parseFloat(scan.next());
-      this.boneStr = Float.parseFloat(scan.next());
-      this.muscStr = Float.parseFloat(scan.next());
-      this.tissStr = Float.parseFloat(scan.next());
-      this.maxStrokeInterval = Integer.parseInt(scan.next());
-      this.minStrokeInterval = Integer.parseInt(scan.next());
-      this.strokeInterval = Integer.parseInt(scan.next());
-
-      nodes.forEach(node -> {
-         if (node.isHead) {
-            this.head = node;
-         }
-         for (int i = 0; i + 2 < node.subStrokeStrList.size(); i += 3) {
-            node.subtreeStroke.add(
-                  new StrokeAction(
-                        (node.subStrokeStrList.get(i).equals("n") ?
-                              newNodes.get(node.subStrokeStrList.get(i + 1)) :
-                              newSprings.get(node.subStrokeStrList.get(i + 1))),
-                        Float.parseFloat(node.subStrokeStrList.get(i + 2))));
-         }
-      });
-      this.stroke = head.subtreeStroke;
-      scan.close();
+   public static SquishyBody parse(String code, PApplet p, VerletPhysics2D world) {
+      TreeParser tp = new TreeParser(code, p, world);
+      return tp.parseSquishyBody();
    }
 
    public SquishyBody(PApplet p, VerletPhysics2D world) {
@@ -151,33 +289,46 @@ public class SquishyBody {
    }
 
    public SquishyBody(Set<Node> nodes, Set<Spring> springs, PApplet p, VerletPhysics2D world) {
+      this(nodes, springs, null, p, world);
+   }
+
+   public SquishyBody(Set<Node> nodes, Set<Spring> springs, List<StrokeAction> stroke, PApplet p, VerletPhysics2D
+         world) {
       this.p = p;
       this.world = world;
       this.nodes = nodes;
       this.springs = springs;
       this.muscles = new LinkedHashSet<>();
-      this.muscles.addAll(springs.stream().filter(spring -> spring.type == Spring.Type.MUSCLE).collect(Collectors.toList()));
+      this.muscles.addAll(springs
+            .stream()
+            .filter(Spring::isMuscle)
+            .collect(Collectors.toList()));
       Iterator<Node> nodeIterator = nodes.iterator();
       head = nodeIterator.next();
       head.isHead = true;
       head.boneParent = null;
       this.nodesArray = nodes.toArray(new Node[0]);
       this.musclesArray = muscles.toArray(new Spring[0]);
-      this.stroke = makeStroke();
-      assignSubtreeStrokes(head);
+      if (stroke != null) {
+         this.stroke = stroke;
+      } else {
+         this.stroke = makeStroke();
+         assignSubtreeStrokes(head);
+      }
+      this.strokeInterval = ((int) p.random(minStrokeInterval, maxStrokeInterval));
       this.currentStrokeAction = 0;
-
+      this.tree = new Tree(head, nodes, springs, stroke);
    }
 
    public String stringify() {
-      StringBuilder sb = new StringBuilder();
-      sb.append("[\n#nodes ")
+      return new StringBuilder()
+            .append("{\n#nodes ")
             .append(nodes.size())
             .append("\n#springs ")
             .append(springs.size())
             .append("\n#strokes ")
             .append(stroke.size())
-            .append("\nstrength [")
+            .append("\nstrength [ ")
             .append(boneStr)
             .append(" ")
             .append(muscStr)
@@ -196,41 +347,9 @@ public class SquishyBody {
             .append("\nstroke-interval ")
             .append(strokeInterval)
             .append("\n")
-            .append(head.stringifySubtree(true))
-            .append("\n]");
-
-      return sb.toString();
-   }
-
-   public String encodeBody() {
-      StringBuilder sb = new StringBuilder();
-      sb.append("NODES \n");
-      nodes.forEach(node -> {
-         sb.append(node.toString() + "\n");
-      });
-      sb.append("SPRINGS \n");
-      springs.forEach(spring -> {
-         sb.append(spring.toString() + "\n");
-      });
-      sb.append("DATA \n");
-      sb.append(" " + minNodes + " ");
-      sb.append(" " + nodesRange + " ");
-      sb.append(" " + maxNodes + " ");
-      sb.append(" " + minBoneLength + " ");
-      sb.append(" " + maxBoneLength + " ");
-      sb.append(" " + branchingProb + " ");
-      sb.append(" " + minStrokeActions + " ");
-      sb.append(" " + strokeExtendProb + " ");
-      sb.append(" " + actionInvolvesNodeProb + " ");
-      sb.append(" " + boneStr + " ");
-      sb.append(" " + muscStr + " ");
-      sb.append(" " + tissStr + " ");
-      sb.append(" " + maxStrokeInterval + " ");
-      sb.append(" " + minStrokeInterval + " ");
-      sb.append(" " + strokeInterval + " ");
-      sb.append(" " + head.stringifySubtreeStroke() + " ");
-
-      return sb.toString();
+            .append(tree.toString())
+            .append("\n}")
+            .toString();
    }
 
    private void growNodes(Set<Node> nodes) {
@@ -260,25 +379,43 @@ public class SquishyBody {
    }
 
    private void ossify(Set<Node> nodes) {
+//      System.out.println("inside ossify");
       PriorityQueue<Node> unconnected = new PriorityQueue<>(nodes);
       PriorityQueue<Node> connected = new PriorityQueue<>();
 
+//      System.out.println("con.add head");
       connected.add(head);
+//      System.out.println("done. now uncon.remove(head)");
       unconnected.remove(head);
+//      System.out.println("done removing. now recording normal");
+      head.recordNormal();
+//      System.out.println("normal recorded. now we start the while loop.");
 
       while (!connected.isEmpty()) {
+//      System.out.println("entering while loop. connected is not empty. State: "+connected);
          Node conn = connected.remove();
+//         System.out.println("removed node " + conn);
          if (!unconnected.isEmpty()) {
+//            System.out.println("uncon isn't empty. state: " + unconnected);
             do {
+//            System.out.println("begin do loop.");
                Node unconn = unconnected.remove();
+//            System.out.println("removed "+unconn+" from set unconnected");
                float r = p.random(minBoneLength, maxBoneLength);
+//            System.out.println("random r="+r);
+               int count = 0;
                do {
+            System.out.println("enter sub do loop");
                   float theta = p.random(p.PI * 2);
+//            System.out.println("random theta = "+theta);
                   unconn.x = conn.x + r * p.cos(theta);
                   unconn.y = conn.y + r * p.sin(theta);
-               } while (springsDoIntersect(unconn.x, unconn.y, conn.x, conn.y));
+                  count++;
+               } while (springsDoIntersect(unconn.x, unconn.y, conn.x, conn.y) && count <20);
+               System.out.println("count was "+count);
                connect(Spring.Type.BONE, conn, unconn, r);
                connected.add(unconn);
+               unconn.recordNormal();
             } while (Math.random() <= branchingProb && !unconnected.isEmpty());
          }
       }
@@ -286,13 +423,17 @@ public class SquishyBody {
 
    private void fleshOut(Set<Node> nodes) {
       nodes.forEach(thisNode -> {
-         Node[] bonyNeighborsArr = thisNode.boneNeighbors.toArray(new Node[0]);
-         for (int i = 0; i < bonyNeighborsArr.length; i++) {
+         Node[] boneChildrenArray = thisNode.boneChildren.toArray(new Node[0]);
+         for (int i = 0; i < boneChildrenArray.length; i++) {
+            Node daddy = thisNode.boneParent;
+            if (daddy != null) {
+               connect(Spring.Type.MUSCLE, daddy, boneChildrenArray[i], daddy.distanceTo(boneChildrenArray[i]));
+            }
             for (int j = 0; j < i; j++) {
                connect(Spring.Type.MUSCLE,
-                     bonyNeighborsArr[i],
-                     bonyNeighborsArr[j],
-                     bonyNeighborsArr[i].distanceTo(bonyNeighborsArr[j]));
+                     boneChildrenArray[i],
+                     boneChildrenArray[j],
+                     boneChildrenArray[i].distanceTo(boneChildrenArray[j]));
             }
          }
       });
@@ -309,31 +450,6 @@ public class SquishyBody {
             })
       );
    }
-
-/*   private void connectTissue(Node from, Node to, float len) {
-      Spring s = new Spring(from, to, Spring.Type.TISSUE, len, len, tissStr, p);
-      springs.add(s);
-      world.addSpring(s);
-      from.addTissueNeighbor(to);
-      to.addTissueNeighbor(from);
-   }
-
-   private void attachMuscle(Node from, Node to, float len) {
-      Spring s = new Spring(from, to, Spring.Type.MUSCLE, len - len * 0.5f, len + len * 0.5f, muscStr, p);
-      springs.add(s);
-      muscles.add(s);
-      world.addSpring(s);
-      from.addMuscleNeighbor(to);
-      to.addMuscleNeighbor(from);
-   }
-
-   public void growBone(Node parent, Node child, float len) {
-
-      springs.add(s);
-      world.addSpring(s);
-      parent.addBoneChild(child);
-      child.addBoneParent(parent);
-   }*/
 
    private Spring connect(Spring.Type type, Node parent, Node child, float len) {
       Spring s = null;
@@ -366,6 +482,7 @@ public class SquishyBody {
    }
 
    private ArrayList<StrokeAction> makeStroke() {
+      System.out.println("making stroke");
       strokeInterval = (int) p.random(minStrokeInterval, maxStrokeInterval);
       ArrayList<StrokeAction> tmpActions = new ArrayList<>();
       for (int i = 0; i < minStrokeActions || p.random(1) < strokeExtendProb; i++) {
@@ -397,6 +514,7 @@ public class SquishyBody {
          retActions.add(tmpActions.remove((int) p.random(tmpActions.size())));
       }
 
+//      System.out.println("done making stroke");
       return retActions;
    }
 
@@ -432,15 +550,32 @@ public class SquishyBody {
    }
 
    public void stroke() {
-      if (stroke != null && stroke.get(currentStrokeAction) != null) {
+      if (stroke != null && stroke.size() > currentStrokeAction && stroke.get(currentStrokeAction) != null) {
          stroke.get(currentStrokeAction).executeAction();
          currentStrokeAction = (currentStrokeAction + 1) % stroke.size();
       }
    }
 
-//   public SquishyBody mateWith(SquishyBody mate) {
-//      SquishyBody ret = new SquishyBody(this.world);
-//   }
+   public Set<Spring> getBonesAndMuscles(Set<Node> dontInclude) {
+      return springs
+            .parallelStream()
+            .filter(spring -> spring.isBone() || spring.isMuscle())
+            .filter(spring -> !(dontInclude.contains(spring.getA()) || dontInclude.contains(spring.getB())))
+            .collect(Collectors.toCollection(LinkedHashSet::new));
+   }
+
+   public List<Spring> getBones() {
+      return springs
+            .parallelStream()
+            .filter(Spring::isBone)
+            .collect(Collectors.toCollection(ArrayList::new));
+   }
+
+   public Spring getRandomBone() {
+      ArrayList<Spring> s = springs.parallelStream().filter(Spring::isBone).collect(Collectors.toCollection
+            (ArrayList::new));
+      return s.get(((int) p.random(s.size())));
+   }
 
    public boolean ccw(float Ax, float Ay, float Bx, float By, float Cx, float Cy) {
       return (Cy - Ay) * (Bx - Ax) > (By - Ay) * (Cx - Ax);
