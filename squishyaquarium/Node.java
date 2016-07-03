@@ -1,54 +1,44 @@
 package squishyaquarium;
 
 import processing.core.PApplet;
-import sun.reflect.generics.tree.Tree;
 import toxi.geom.Vec2D;
 import toxi.physics2d.VerletParticle2D;
-import toxi.physics2d.VerletPhysics2D;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 import static processing.core.PApplet.map;
-import static processing.core.PConstants.Z;
 
 public class Node extends VerletParticle2D implements SquishyBodyPart {
-
-   private PApplet p;
-
+   private final String nodeID = UUID.randomUUID().toString();
    float w;
-   private float state;
    boolean isHead = false;
    int fill;
    float d = 10;
    Vec2D normal;
-
+   Vec2D diff;
    Node boneParent;
    Set<Node> boneChildren;
-   Set<Node> muscleNeighbors;
    Set<Node> neighbors;
-
    Set<Spring> springsAttached;
+   private PApplet p;
+   private float state;
 
-   List<StrokeAction> subtreeStroke;
-   List<String> subStrokeStrList;
 
    Node(float x, float y, int fill, PApplet p) {
       super(new Vec2D(x, y));
-      this.normal = null;
+      recordNormal();
+      this.diff = null;
       this.p = p;
       this.fill = fill;
       this.w = getWeight();
       this.state = 1.0f;
       this.neighbors = new LinkedHashSet<>();
       this.boneChildren = new LinkedHashSet<>();
-      this.muscleNeighbors = new LinkedHashSet<>();
       this.springsAttached = new LinkedHashSet<>();
-      this.subtreeStroke = new ArrayList<>();
    }
 
    Node(float x, float y, PApplet p) {
-      this(x, y, p.color(255), p);
+      this(x, y, p.color(p.random(256), p.random(256), p.random(256)), p);
    }
 
    Node(PApplet p) {
@@ -84,6 +74,7 @@ public class Node extends VerletParticle2D implements SquishyBodyPart {
    }
    public void recordNormal(){
       this.normal = new Vec2D(this.x, this.y);
+      this.diff = boneParent == null ? new Vec2D(0,0) : this.normal.sub(boneParent.normal);
    }
 
    void addBoneParent(Node n) {
@@ -100,17 +91,17 @@ public class Node extends VerletParticle2D implements SquishyBodyPart {
       boneChildren.add(n);
    }
 
-   void addMuscleNeighbor(Node n) {
-      neighbors.add(n);
-      muscleNeighbors.add(n);
-   }
-
-   void addTissueNeighbor(Node n) {
+   void addNeighbor(Node n) {
       neighbors.add(n);
    }
 
    String stringifySubtreeNodeSet(Map<SquishyBodyPart, String> nodeNames) {
       StringBuilder sb = new StringBuilder();
+      String thisString = nodeNames.get(this);
+
+      if (thisString == null) {  //assume if node can't be found in table, doesn't belong
+         return "";
+      }
 
       sb.append(nodeNames.get(this))
             .append(" ")
@@ -133,14 +124,30 @@ public class Node extends VerletParticle2D implements SquishyBodyPart {
    }
 
    String getDataString() {
-      p.alpha(fill);
-      return "[ " + normal.x + " " + normal.y + " " + w + " " + Integer.toHexString(fill) + " ]";
+      String hex = Integer.toHexString(fill);
+      if (hex.length() == 8 && hex.substring(0, 2).equalsIgnoreCase("ff")) {
+         hex = hex.substring(2, 8);
+      }
+      return "[ " + normal.x + " " + normal.y + " " + w + " " + hex + " ]";
    }
 
    public Node[] getBoneNeighborsArray(){
       Node[] ret = boneChildren.toArray(new Node[boneChildren.size() + 1]);
       ret[ret.length - 1]=boneParent;
       return ret;
+   }
+
+   public void rotateAbout(Vec2D pivot, float theta) {
+      /*
+      Rotating a point from position (o.x, o.y) to position (oR.x, oR.y)
+      through an angle "theta" about pivot point (oP.x, oP.y)
+
+      oR.x = oP.x + (o.x - oP.x) * cos(theta) - (o.y - oP.y) * sin(theta)
+      oR.y = oP.y + (o.x - oP.x) * sin(theta) + (o.y - oP.y) * cos(theta)
+      */
+      x = pivot.x + (x - pivot.x) * p.cos(theta) - (y - pivot.y) * p.sin(theta);
+      y = pivot.y + (x - pivot.x) * p.sin(theta) + (y - pivot.y) * p.cos(theta);
+      recordNormal();
    }
 
    @Override
@@ -150,7 +157,7 @@ public class Node extends VerletParticle2D implements SquishyBodyPart {
    }
 
    @Override
-   public boolean isContainedIn(Set<Node> nodeSet) {
+   public boolean isContainedIn(Set<Node> nodeSet, boolean fullyContained) {
       return nodeSet.contains(this);
    }
 
@@ -163,5 +170,23 @@ public class Node extends VerletParticle2D implements SquishyBodyPart {
       springsAttached.add(s);
    }
 
+   public boolean hasAsAncestor(Node subtreeRoot) {
+      if (boneParent == null) {
+         return false;
+      }
+      if (boneParent == subtreeRoot) {
+         return true;
+      } else return boneParent.hasAsAncestor(subtreeRoot);
+   }
+
+   @Override
+   public int hashCode() {
+      return nodeID.hashCode();
+   }
+
+   @Override
+   public boolean equals(Object obj) {
+       return (obj instanceof Node && ((Node) obj).nodeID.equals(nodeID));
+   }
 }
   

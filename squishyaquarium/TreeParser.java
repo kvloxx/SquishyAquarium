@@ -1,28 +1,44 @@
 package squishyaquarium;
 
 import processing.core.PApplet;
-import toxi.physics2d.VerletPhysics2D;
+import toxi.geom.Rect;
 
 import java.util.*;
 
-import static squishyaquarium.TreeParser.TokenType.HEX;
+import static squishyaquarium.TreeParser.TokenType.*;
 
 /**
  * Created by kvloxx 44
  */
 public class TreeParser {
-   PApplet p;
-   VerletPhysics2D world;
-   String input;
-   ArrayList<Token> tokens;
-   Token currentToken;
-   Iterator<Token> tokenIterator;
-   HashMap<String, SquishyBodyPart> hashedSquishyParts;
-   Set<Node> globalNodeSet;
-   Set<Spring> globalSpringSet;
-   List<StrokeAction> globalStrokeList;
 
-   enum TokenType {
+   private Random rand;
+
+   //Mutation Odds
+   private final float duplication = 1 / 50f;
+   private final float translocation = 1 / 45f;
+   private final float deletion = 1 / 25f;
+   private final float addition = 1 / 25f;
+   private final float relaxation = 1 / 20f;
+   private final float discover = 1 / 20f;
+   private final float forget = 1 / 20f;
+   private final float swap = 1 / 30f;
+   private final float permutation = 1 / 40f;
+
+   private PApplet p;
+   private World world;
+   private String input;
+   private ArrayList<Token> tokens;
+   private Token currentToken;
+   private Iterator<Token> tokenIterator;
+   private HashMap<String, SquishyBodyPart> hashedSquishyParts;
+   private Set<Node> globalNodeSet;
+   private Set<Spring> globalSpringSet;
+   private List<StrokeAction> globalStrokeList;
+
+   private float mutationRate = 0;
+
+   enum TokenType { //"Token Type"
       LEFT_CURLY, RIGHT_CURLY,
       LEFT_SQUARE, RIGHT_SQUARE,
       LEFT_ROUND, RIGHT_ROUND,
@@ -37,10 +53,24 @@ public class TreeParser {
       UNRECOGNIZED, EOF
    }
 
-   TreeParser(String input, PApplet p, VerletPhysics2D world) {
+   TreeParser(String input, PApplet p, World world) {
+      this.rand = new Random();
       this.p = p;
       this.world = world;
       this.input = input;
+      String[] stringTokens = input.split("\\s+");
+      tokens = new ArrayList<>(stringTokens.length + 1); //EOF tok will be added
+      for (String dataString : stringTokens) {
+         tokens.add(new Token(dataString));
+      }
+      tokens.add(new Token("EOF"));
+      hashedSquishyParts = new HashMap<>();
+      globalNodeSet = new LinkedHashSet<>();
+      globalSpringSet = new LinkedHashSet<>();
+      globalStrokeList = new ArrayList<>();
+   }
+
+   private void reset() {
       String[] stringTokens = input.split("\\s+");
       tokens = new ArrayList<>(stringTokens.length + 1); //EOF tok will be added
       for (String dataString : stringTokens) {
@@ -55,77 +85,282 @@ public class TreeParser {
       globalStrokeList = new ArrayList<>();
    }
 
-   SquishyBody parseSquishyBody() {
-      float bonestr, musclestr, tissuestr, minlen, maxlen, branchp, extp, invnodep;
-      int numnodes, numsprings, numstrokes, interval;
-      match(TokenType.LEFT_CURLY);
-      match(TokenType.NUM_NODES);
-      numnodes = Integer.parseInt(currentToken.data, 10);
-      match(TokenType.FLOAT);
-      match(TokenType.NUM_SPRINGS);
-      numsprings = Integer.parseInt(currentToken.data, 10);
-      match(TokenType.FLOAT);
-      match(TokenType.NUM_STROKES);
-      numstrokes = Integer.parseInt(currentToken.data, 10);
-      match(TokenType.FLOAT);
-      match(TokenType.STR);
-      match(TokenType.LEFT_SQUARE);
-      bonestr = Float.parseFloat(currentToken.data);
-      match(TokenType.FLOAT);
-      musclestr = Float.parseFloat(currentToken.data);
-      match(TokenType.FLOAT);
-      tissuestr = Float.parseFloat(currentToken.data);
-      match(TokenType.FLOAT);
-      match(TokenType.RIGHT_SQUARE);
-      match(TokenType.LEN);
-      match(TokenType.LEFT_SQUARE);
-      minlen = Float.parseFloat(currentToken.data);
-      match(TokenType.FLOAT);
-      maxlen = Float.parseFloat(currentToken.data);
-      match(TokenType.FLOAT);
-      match(TokenType.RIGHT_SQUARE);
-      match(TokenType.BRANCH_P);
+   SquishyBody sloppyParseSquishyBody(float mutationRate) {
+      this.reset();
+      this.mutationRate = mutationRate;
+      SquishyBody sb = parseSquishyBody(true);
+      mutate(sb);
+      return sb;
+   }
+
+   private void mutate(SquishyBody sb) {
+      //TODO: one of these is probably causing abnormal behavior in the physics sim; probably forgot to remove a
+      // spring from the world or something.
+      float delRate = mutationRate * deletion;
+      float addRate = mutationRate * addition;
+      float dupRate = mutationRate * duplication;
+      float tlcRate = mutationRate * translocation;
+      float rlxRate = mutationRate * relaxation;
+      ArrayList<Node> del = null;
+      ArrayList<Node> add = null;
+      ArrayList<Node> dup = null;
+      ArrayList<Node> tlc = null;
+      int relaxCount = 0;
+
+      for (Node node : sb.nodes) {
+         if (r() < delRate) {
+            if (del == null) del = new ArrayList<>();
+            del.add(node);
+         }
+         if (r() < addRate) {
+            if (add == null) add = new ArrayList<>();
+            add.add(node);
+         }
+         if (r() < dupRate && node != sb.root) {
+            if (dup == null) dup = new ArrayList<>();
+            dup.add(node);
+         }
+         if (r() < tlcRate) {
+            if (tlc == null) tlc = new ArrayList<>();
+            tlc.add(node);
+         }
+         if (r() < rlxRate) {
+            relaxCount++;
+         }
+      }
+
+      float swpRate = mutationRate * swap;
+      float pmtRate = mutationRate * permutation;
+      float dscRate = mutationRate * discover;
+      float fgtRate = mutationRate * forget;
+      ArrayList<StrokeAction> swp = null;
+      boolean permute = false;
+      int discoverCount = 0;
+      int forgetCount = 0;
+
+      for (StrokeAction action : sb.stroke.actions) {
+         if (r() < swpRate) {
+            if (swp == null) swp = new ArrayList<>();
+            swp.add(action);
+         }
+         if (r() < pmtRate) {
+            permute = true;
+         }
+         if (r() < dscRate) {
+            discoverCount++;
+         }
+         if (r() < fgtRate) {
+            forgetCount++;
+         }
+      }
+      /*
+      deletion
+      addition
+      duplication
+      shift
+      relaxation
+      discover
+      forget
+      swap
+      permutation
+      */
+      if (del != null) {
+         System.out.println("del");
+         for (Node node : del) {
+            sb.removeSubtreeAt(node);
+         }
+      }
+      if (add != null) {
+         System.out.println("add");
+         for (Node node : add) {
+            sb.addGrowthTo(node);
+         }
+      }
+      if (dup != null) {
+         System.out.println("dup");
+         for (Node node : dup) {
+            sb.duplicateSubtreeAt(node);
+         }
+      }
+      if (tlc != null) {
+         System.out.println("tlc");
+         for (Node node : tlc) {
+            sb.randomlyShiftSubtreeAt(node);
+         }
+      }
+      sb.settle(relaxCount);
+      sb.stroke.blendActionsWith(sb.makeStrokeActionList(discoverCount));
+      if (relaxCount > 0) {
+         System.out.println("relax");
+      }
+      sb.stroke.removeActions(forgetCount);
+      if (discoverCount > 0) {
+         System.out.println("discover");
+      }
+      if (permute) {
+         System.out.println("perm");
+         sb.stroke.shuffle();
+      } else if (swp != null) {
+         System.out.println("swp");
+         for (StrokeAction action : swp) {
+            sb.stroke.randomlySwap(action);
+         }
+      }
+
+   }
+
+   private float r() {
+      return rand.nextFloat();
+   }
+
+   private float zop(float input, float scale) {
+      if (r() < mutationRate) return input - scale + r() * 2 * scale;
+      else return input;
+   }
+
+   private float zap(float input, float minValue) {
+      if (input < 0) {
+         System.out.println("won't zap a negative number with a minValue: " + input);
+         return input;
+      }
+      minValue = minValue == 0 ? input / 100f : minValue;
+
+      if (r() < mutationRate) {
+         float x = (r() * 2 * input);
+         return x < minValue ? x + minValue : x;
+      } else return input;
+   }
+
+   private float zap(float input, float minValue, float maxValue) {
+      if (input < 0) {
+         System.out.println("won't zap a negative number with a minValue: " + input);
+         return input;
+      }
+      if (maxValue <= minValue) {
+         System.out.println("can't zap when max<=min: " + maxValue + "<=" + minValue);
+         return input;
+      }
+      minValue = minValue == 0 ? input / 100f : minValue;
+      if (r() < mutationRate) {
+         float x = (r() * 2 * input);
+         int count = 0;
+         while (x > maxValue || x < minValue || count > 10) {
+            if (x > maxValue) {
+               x -= maxValue;
+            } else {
+               x += minValue;
+            }
+            count++;
+         }
+         return x;
+      } else return input;
+   }
+
+   private float zap(float input, float absMin, float absMax, float scale) {
+      if (input < 0) {
+         System.out.println("won't zap a negative number with a minValue: " + input);
+         return input;
+      }
+      if (absMax <= absMin) {
+         System.out.println("can't zap when max<=min: " + absMax + "<=" + absMin);
+         return input;
+      }
+      absMin = absMin == 0 ? input / 100f : absMin;
+      if (r() < mutationRate) {
+         float x = input + (p.random(2 * scale) - scale);
+         if (x > absMax) {
+            x = absMax;
+         } else if (x < absMin) {
+            x = absMin;
+         }
+         return x;
+      } else return input;
+   }
+
+   public SquishyBody parseSquishyBody(boolean sloppy) {
+      this.reset();
+      float bstr, mstr, tstr, minl, maxl, branchp, extp, invnodep;
+      match(LEFT_CURLY);
+      match(STR);
+      match(LEFT_SQUARE);
+      bstr = Float.parseFloat(currentToken.data);
+      match(FLOAT);
+      mstr = Float.parseFloat(currentToken.data);
+      match(FLOAT);
+      tstr = Float.parseFloat(currentToken.data);
+      match(FLOAT);
+      match(RIGHT_SQUARE);
+      match(LEN);
+      match(LEFT_SQUARE);
+      minl = Float.parseFloat(currentToken.data);
+      match(FLOAT);
+      maxl = Float.parseFloat(currentToken.data);
+      match(FLOAT);
+      match(RIGHT_SQUARE);
+      match(BRANCH_P);
       branchp = Float.parseFloat(currentToken.data);
-      match(TokenType.FLOAT);
-      match(TokenType.EXTEND_P);
+      match(FLOAT);
+      match(EXTEND_P);
       extp = Float.parseFloat(currentToken.data);
-      match(TokenType.FLOAT);
-      match(TokenType.INV_NODE_P);
+      match(FLOAT);
+      match(INV_NODE_P);
       invnodep = Float.parseFloat(currentToken.data);
-      match(TokenType.FLOAT);
-      match(TokenType.INTERVAL);
-      interval = Integer.parseInt(currentToken.data, 10);
-      match(TokenType.FLOAT);
-      Tree tree = parseTree();
-      match(TokenType.RIGHT_CURLY);
-      match(TokenType.EOF);
+      match(FLOAT);
+      Tree tree = parseTreeNoReset(sloppy);
+      match(RIGHT_CURLY);
+      match(EOF);
       SquishyBody ret = new SquishyBody(tree, p, world);
-      ret.setConstants(bonestr, musclestr, tissuestr, minlen, maxlen, branchp, extp, invnodep, interval);
+      if (sloppy) {
+         minl = zap(minl, 5);
+         maxl = zap(maxl, minl);
+         ret.setConstants(
+               zap(bstr, mstr, 1), zap(mstr, tstr, bstr), zap(tstr, 0, mstr),
+               minl, maxl,
+               zap(branchp, 0), zap(extp, 0), zap(invnodep, 0));
+      } else {
+         ret.setConstants(bstr, mstr, tstr, minl, maxl, branchp, extp, invnodep);
+      }
       return ret;
    }
 
-   Tree parseTree() {
-      parseNodeSet();
-      parseSpringSet();
-      parseStrokeSet();
+   Tree parseTree(boolean sloppy) {
+      this.reset();
+      return parseTreeNoReset(sloppy);
+   }
+
+   private Tree parseTreeNoReset(boolean sloppy) {
+      match(FLOAT);
+      parseNodeSet(sloppy);
+      match(FLOAT);
+      parseSpringSet(sloppy);
+      match(FLOAT);
+      match(COLON);
+      int interval = Integer.parseInt(currentToken.data);
+      if (sloppy) {
+         interval = (int) zap(interval, 2);
+      }
+      match(FLOAT);
+      parseStrokeSet(sloppy);
       for (Node node : globalNodeSet) {
          world.addParticle(node);
+         node.scaleVelocity(0);
       }
       for (Spring spring : globalSpringSet) {
          world.addSpring(spring);
       }
-      return new Tree(globalNodeSet, globalSpringSet, globalStrokeList);
+      Stroke strk = new Stroke(globalStrokeList, interval);
+      return new Tree(globalNodeSet, globalSpringSet, strk, p, world);
    }
 
-   private void parseStrokeSet() {
+   private void parseStrokeSet(boolean sloppy) {
       switch (currentToken.type) {
          case EOF:
             //epsilon production
             break;
          case LEFT_CURLY:
-            match(TokenType.LEFT_CURLY);
-            parseStrokeList();
-            match(TokenType.RIGHT_CURLY);
+            match(LEFT_CURLY);
+            parseStrokeList(sloppy);
+            match(RIGHT_CURLY);
             break;
          default:
             System.out.println("Something went wrong in parseStrokeSet");
@@ -133,16 +368,16 @@ public class TreeParser {
       }
    }
 
-   private void parseStrokeList() {
+   private void parseStrokeList(boolean sloppy) {
       switch (currentToken.type) {
          case RIGHT_CURLY:
             //epsilon production
             break;
          case LEFT_ROUND:
-            match(TokenType.LEFT_ROUND);
-            parseStroke();
-            match(TokenType.RIGHT_ROUND);
-            parseStrokeList();
+            match(LEFT_ROUND);
+            parseStroke(sloppy);
+            match(RIGHT_ROUND);
+            parseStrokeList(sloppy);
             break;
          default:
             System.out.println("uh parseStrokeList() something bad happened you know the drill");
@@ -150,36 +385,39 @@ public class TreeParser {
       }
    }
 
-   private StrokeAction parseStroke() {
+   private StrokeAction parseStroke(boolean sloppy) {
       SquishyBodyPart part = null;
       switch (currentToken.type) {
          case MUSCLE_NAME:
             part = hashedSquishyParts.get(currentToken.data);
-            match(TokenType.MUSCLE_NAME);
+            match(MUSCLE_NAME);
             break;
          case NODE_NAME:
             part = hashedSquishyParts.get(currentToken.data);
-            match(TokenType.NODE_NAME);
+            match(NODE_NAME);
             break;
          default:
             System.out.println("AH WHAT HAPPENED parseStroke()");
             break;
       }
       float state = Float.parseFloat(currentToken.data);
-      match(TokenType.FLOAT);
+      if (sloppy) {
+         state = zap(state, 0, 1);
+      }
+      match(FLOAT);
       StrokeAction ret = new StrokeAction(part, state);
       globalStrokeList.add(ret);
       return ret;
    }
 
-   private Set<Spring> parseSpringSet() {
-      match(TokenType.LEFT_CURLY);
-      parseSpringList();
-      match(TokenType.RIGHT_CURLY);
+   private Set<Spring> parseSpringSet(boolean sloppy) {
+      match(LEFT_CURLY);
+      parseSpringList(sloppy);
+      match(RIGHT_CURLY);
       return globalSpringSet;
    }
 
-   private void parseSpringList() {
+   private void parseSpringList(boolean sloppy) {
       switch (currentToken.type) {
          case RIGHT_CURLY:
             //epsilon production
@@ -187,8 +425,8 @@ public class TreeParser {
          case BONE_NAME:
          case MUSCLE_NAME:
          case TISSUE_NAME:
-            globalSpringSet.add(parseSpring());
-            parseSpringList();
+            globalSpringSet.add(parseSpring(sloppy));
+            parseSpringList(sloppy);
             break;
          default:
             System.out.println("Parse error in parseSpringList() lol");
@@ -196,98 +434,90 @@ public class TreeParser {
       }
    }
 
-   private Spring parseSpring() {
+   private Spring parseSpring(boolean sloppy) {
       Token t = currentToken;
       switch (t.type) {
          case BONE_NAME:
-            match(TokenType.BONE_NAME);
+            match(BONE_NAME);
             break;
          case MUSCLE_NAME:
-            match(TokenType.MUSCLE_NAME);
+            match(MUSCLE_NAME);
             break;
          case TISSUE_NAME:
-            match(TokenType.TISSUE_NAME);
+            match(TISSUE_NAME);
             break;
          default:
             System.out.println("Parse error: " + currentToken + " aint even a spring name yo. Love, parseSpring()");
             break;
       }
 
-      match(TokenType.LEFT_ROUND);
+      match(LEFT_ROUND);
       Node a = ((Node) hashedSquishyParts.get(currentToken.data));
-      match(TokenType.NODE_NAME);
-      match(TokenType.COLON);
+      match(NODE_NAME);
+      match(COLON);
       Node b = ((Node) hashedSquishyParts.get(currentToken.data));
-      match(TokenType.NODE_NAME);
-      match(TokenType.RIGHT_ROUND);
+      match(NODE_NAME);
+      match(RIGHT_ROUND);
 
-      float[] constants = parseSpringData();
+      float[] constants = parseSpringData(sloppy);
 
       Spring parsedSpring = null;
+      float l = a.normal.distanceTo(b.normal);
 
       switch (t.type) {
          case BONE_NAME:
             parsedSpring = new Spring(a, b, Spring.Type.BONE,
-                  constants[0], constants[1], constants[2], p);
-            a.addBoneChild(b);
-            a.attachSpring(parsedSpring);
-            b.addBoneParent(a);
+                  l, l, constants[2], p);
             break;
          case MUSCLE_NAME:
             parsedSpring = new Spring(a, b, Spring.Type.MUSCLE,
-                  constants[0], constants[1], constants[2], p);
-            a.addMuscleNeighbor(b);
-            a.attachSpring(parsedSpring);
-            b.addMuscleNeighbor(a);
-            b.attachSpring(parsedSpring);
+                  l * 0.5f, l * 1.5f, constants[2], p);
             break;
          case TISSUE_NAME:
             parsedSpring = new Spring(a, b, Spring.Type.TISSUE,
-                  constants[0], constants[1], constants[2], p);
-            a.addTissueNeighbor(b);
-            a.attachSpring(parsedSpring);
-            b.addTissueNeighbor(a);
-            b.attachSpring(parsedSpring);
+                  l, l, constants[2], p);
             break;
          default:
             break;
       }
       hashedSquishyParts.put(t.data, parsedSpring);
+      parsedSpring.completeConnection();
+      world.addSpring(parsedSpring);
       return parsedSpring;
    }
 
-   private float[] parseSpringData() {
+   private float[] parseSpringData(boolean sloppy) {
       float[] ret = new float[3];
-      match(TokenType.LEFT_SQUARE);
+      match(LEFT_SQUARE);
       ret[0] = Float.parseFloat(currentToken.data);
-      match(TokenType.FLOAT);
+      match(FLOAT);
       ret[1] = Float.parseFloat(currentToken.data);
-      match(TokenType.FLOAT);
+      match(FLOAT);
       ret[2] = Float.parseFloat(currentToken.data);
-      match(TokenType.FLOAT);
-      match(TokenType.RIGHT_SQUARE);
+      match(FLOAT);
+      match(RIGHT_SQUARE);
       return ret;
    }
 
-   private Set<Node> parseNodeSet() {
-      return parseNodeSet(new LinkedHashSet<>());
+   private Set<Node> parseNodeSet(boolean sloppy) {
+      return parseNodeSet(new LinkedHashSet<>(), sloppy);
    }
 
-   private Set<Node> parseNodeSet(Set<Node> currentNodeSet) {
-      match(TokenType.LEFT_CURLY);
-      parseNodeList(currentNodeSet);
-      match(TokenType.RIGHT_CURLY);
+   private Set<Node> parseNodeSet(Set<Node> currentNodeSet, boolean sloppy) {
+      match(LEFT_CURLY);
+      parseNodeList(currentNodeSet, sloppy);
+      match(RIGHT_CURLY);
       return currentNodeSet;
    }
 
-   private Set<Node> parseNodeList(Set<Node> currentNodeSet) {
+   private Set<Node> parseNodeList(Set<Node> currentNodeSet, boolean sloppy) {
       switch (currentToken.type) {
          case RIGHT_CURLY:
             //epsilon production
             break;
          case NODE_NAME:
-            currentNodeSet.add(parseNode());
-            parseNodeList(currentNodeSet);
+            currentNodeSet.add(parseNode(sloppy));
+            parseNodeList(currentNodeSet, sloppy);
             break;
          default:
             System.out.println("Parse error all up in parseNodeList()");
@@ -296,15 +526,14 @@ public class TreeParser {
       return currentNodeSet;
    }
 
-   private Node parseNode() {
+   private Node parseNode(boolean sloppy) {
       Token t = currentToken;
-      if (match(TokenType.NODE_NAME)) {
+      if (match(NODE_NAME)) {
          Node parsedNode = new Node(p);
          hashedSquishyParts.put(t.data, parsedNode);
          globalNodeSet.add(parsedNode);
-         parseAndSetNodeData(parsedNode);
-         parsedNode.boneChildren = parseNodeSet();
-         System.out.println("parsedNode = " + parsedNode);
+         parseAndSetNodeData(parsedNode, sloppy);
+         parsedNode.boneChildren = parseNodeSet(sloppy);
          return parsedNode;
       } else {
          System.out.println("Parse error: " + currentToken + " aint even a node name yo. Love, parseNode()");
@@ -313,36 +542,100 @@ public class TreeParser {
 
    }
 
-   private void parseAndSetNodeData(Node parsedNode) {
-      match(TokenType.LEFT_SQUARE);
+   private void parseAndSetNodeData(Node parsedNode, boolean sloppy) {
+      match(LEFT_SQUARE);
       String sX, sY, sW, fill;
       sX = currentToken.data;
-      match(TokenType.FLOAT);
+      match(FLOAT);
       sY = currentToken.data;
-      match(TokenType.FLOAT);
+      match(FLOAT);
       sW = currentToken.data;
-      match(TokenType.FLOAT);
+      match(FLOAT);
       switch (currentToken.type) {
          case FLOAT:
+            fill = currentToken.data;
+            match(FLOAT);
+            fill = fill.length() == 6 ? "ff" + fill : fill;
+            break;
          case HEX:
             fill = currentToken.data;
-            match(TokenType.HEX);
+            match(HEX);
+            fill = fill.length() == 6 ? "ff" + fill : fill;
             break;
          case RIGHT_SQUARE:
             fill = "";
             break;
          default:
-            fill=null;
             System.out.println("Why is " + currentToken.data + " being read by parseAndSetNodeData()?");
-            break;
+            return;
       }
-      match(TokenType.RIGHT_SQUARE);
+      match(RIGHT_SQUARE);
+
+      float fX = Float.parseFloat(sX);
+      float fY = Float.parseFloat(sY);
+      float fW = Float.parseFloat(sW);
+
+      if (sloppy) {
+         Rect wb = world.getWorldBounds();
+         if (wb != null) {
+            fX = zap(fX, wb.getLeft(), wb.getRight(), 10);
+            fY = zap(fY, wb.getTop(), wb.getBottom(), 10);
+         } else {
+            fX = zop(fX, 10);
+            fY = zop(fY, 10);
+         }
+         fW = zap(fW, 0);
+      }
+
       if (fill.isEmpty()) {
-         parsedNode.updateData(Float.parseFloat(sX), Float.parseFloat(sY), Float.parseFloat(sW));
+         parsedNode.updateData(fX, fY, fW);
       } else {
-         parsedNode.updateData(Float.parseFloat(sX), Float.parseFloat(sY),
-               Float.parseFloat(sW), Integer.parseUnsignedInt(fill, 16));
+         parsedNode.updateData(fX, fY, fW, Integer.parseUnsignedInt(fill, 16));
       }
+
+      /*
+      if (fill.isEmpty()) {
+         if (sloppy) {
+            float fX = Float.parseFloat(sX);
+            float fY = Float.parseFloat(sY);
+            float fW = Float.parseFloat(sW);
+            Rect wb =world.getWorldBounds();
+            if (wb != null) {
+               fX = zap(fX, wb.getLeft(), wb.getRight(), 10);
+               fY = zap(fY, wb.getTop(), wb.getBottom(), 10);
+            } else {
+               fX = zop(fX, 10);
+               fY = zop(fY, 10);
+            }
+               fW = zap(fW, 0);
+            parsedNode.updateData(fX, fY, fW);
+         } else {
+            parsedNode.updateData(Float.parseFloat(sX), Float.parseFloat(sY), Float.parseFloat(sW));
+         }
+      } else {
+         if (fill.length() == 6) {
+            fill = "ff" + fill;
+         }
+         if (sloppy) {
+            float fX = Float.parseFloat(sX);
+            float fY = Float.parseFloat(sY);
+            float fW = Float.parseFloat(sW);
+            Rect wb =world.getWorldBounds();
+            if (wb != null) {
+               fX = zap(fX, wb.getLeft(), wb.getRight(), 10);
+               fY = zap(fY, wb.getTop(), wb.getBottom(), 10);
+            } else {
+               fX = zop(fX, 10);
+               fY = zop(fY, 10);
+            }
+            fW = zap(fW, 0);
+            parsedNode.updateData(fX, fY, fW, Integer.parseUnsignedInt(fill, 16));
+         } else {
+            parsedNode.updateData(Float.parseFloat(sX), Float.parseFloat(sY),
+                  Float.parseFloat(sW), Integer.parseUnsignedInt(fill, 16));
+         }
+      }
+      */
    }
 
    private boolean match(TokenType expectedType) {
@@ -355,7 +648,7 @@ public class TreeParser {
          System.out.println("PARSE ERROR: was expecting " + expectedType + " but recieved a big ol buttload of " + currentToken);
          return false;
       }
-      if (expectedType != TokenType.EOF) {
+      if (expectedType != EOF) {
          currentToken = tokenIterator.next();
       }
       return true;
@@ -374,59 +667,59 @@ public class TreeParser {
       private TokenType determineVal(String data) {
          switch (data) {
             case "{":
-               return TokenType.LEFT_CURLY;
+               return LEFT_CURLY;
             case "}":
-               return TokenType.RIGHT_CURLY;
+               return RIGHT_CURLY;
             case "[":
-               return TokenType.LEFT_SQUARE;
+               return LEFT_SQUARE;
             case "]":
-               return TokenType.RIGHT_SQUARE;
+               return RIGHT_SQUARE;
             case "(":
-               return TokenType.LEFT_ROUND;
+               return LEFT_ROUND;
             case ":":
-               return TokenType.COLON;
+               return COLON;
             case ")":
-               return TokenType.RIGHT_ROUND;
+               return RIGHT_ROUND;
             case "EOF": //eof must be passed in as literally "EOF"
-               return TokenType.EOF;
+               return EOF;
             case "#nodes":
-               return TokenType.NUM_NODES;
+               return NUM_NODES;
             case "#springs":
-               return TokenType.NUM_SPRINGS;
+               return NUM_SPRINGS;
             case "#strokes":
-               return TokenType.NUM_STROKES;
+               return NUM_STROKES;
             case "strength":
-               return TokenType.STR;
+               return STR;
             case "branching-prob":
-               return TokenType.BRANCH_P;
+               return BRANCH_P;
             case "bone-length":
-               return TokenType.LEN;
+               return LEN;
             case "stroke-extend-prob":
-               return TokenType.EXTEND_P;
+               return EXTEND_P;
             case "involves-node-prob":
-               return TokenType.INV_NODE_P;
+               return INV_NODE_P;
             case "stroke-interval":
-               return TokenType.INTERVAL;
+               return INTERVAL;
          }
          if (data.matches("@\\d+")) { //node prefix @, followed by digits
-            return TokenType.NODE_NAME;
+            return NODE_NAME;
          }
          if (data.matches("\\$B\\d+")) {
-            return TokenType.BONE_NAME;
+            return BONE_NAME;
          }
          if (data.matches("\\$M\\d+")) {
-            return TokenType.MUSCLE_NAME;
+            return MUSCLE_NAME;
          }
          if (data.matches("\\$T\\d+")) {
-            return TokenType.TISSUE_NAME;
+            return TISSUE_NAME;
          }
          if (data.matches("-?(\\d*\\.)?\\d+((e|E)-?\\d+)?")) {
-            return TokenType.FLOAT;
+            return FLOAT;
          }
          if (data.matches("(0(x|X))?(\\p{XDigit})+")) {
-            return TokenType.HEX;
+            return HEX;
          }
-         return TokenType.UNRECOGNIZED;
+         return UNRECOGNIZED;
       }
 
       @Override

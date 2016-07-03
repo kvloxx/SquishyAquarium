@@ -22,7 +22,7 @@ public class StrokeAction {
       return obj instanceof Node;
    }
 
-   boolean actionIsContainedIn(Set<Node> nodeSet) {
-      return obj.isContainedIn(nodeSet);
+   boolean actionIsContainedIn(Set<Node> nodeSet, boolean fullyContained) {
+      return obj.isContainedIn(nodeSet, fullyContained);
    }
 }

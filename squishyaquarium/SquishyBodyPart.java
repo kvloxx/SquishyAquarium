@@ -5,7 +5,7 @@ import java.util.Set;
 /**
  * Created by kvloxx
  */
-public interface SquishyBodyPart {
+interface SquishyBodyPart {
    void changeState(float state);
-   boolean isContainedIn(Set<Node> nodeSet);
+   boolean isContainedIn(Set<Node> nodeSet, boolean fullyContained);
 }
