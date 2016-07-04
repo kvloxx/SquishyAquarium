@@ -44,6 +44,59 @@ public class Tree {
       this(root, nodes, springs, null, p, world);
    }
 
+   public static Set<Node> getSubtreeNodes(Node subtreeRoot) {   //set includes current root node
+      if (subtreeRoot.boneChildren == null) {
+         Set<Node> s = new LinkedHashSet<>();
+         s.add(subtreeRoot);
+         return s;
+      }
+      Set<Node> ret = new LinkedHashSet<>();
+      Queue<Node> Q = new PriorityQueue<>(subtreeRoot.boneChildren);
+
+      ret.add(subtreeRoot);
+
+      while (!Q.isEmpty()) {
+         Node curr = Q.remove();
+         ret.add(curr);
+         Q.addAll(curr.boneChildren);
+      }
+      return ret;
+   }
+
+   /**
+    * Returns the {@link Tree} consisting of elements (nodes, springs, strokeActions) that are
+    * members of this tree but not the tree rooted at the specified node.
+    * Tree elements are NOT copied; a statement like getSubtreeAt(n).root == n will return true
+    * The returned tree is rooted at this tree's root.
+    * The result for Node n can be thought of as the relative complement of the tree returned by getSubtreeAt(n)
+    * in this tree.
+    *
+    * @param subtreeRoot the root of the tree whose elements will not be included in the result
+    * @return the tree that contains (elements of this)/(elements of the tree rooted at the specified node)
+    */
+
+   public static Set<Spring> getSpringsContainedIn(Set<Node> nodeSet, Predicate<? super Spring> springFilter) {
+      return getSpringsContainedIn(nodeSet)
+            .stream()
+            .filter(springFilter)
+            .collect(Collectors.toCollection(LinkedHashSet::new));
+   }
+
+   public static Set<Spring> getSpringsContainedIn(Set<Node> nodeSet) {
+      return getSpringsContainedIn(nodeSet, true);
+   }
+
+   public static Set<Spring> getSpringsContainedIn(Set<Node> nodeSet, boolean fullyContained) {
+      Set<Spring> ret = new LinkedHashSet<>();
+      for (Node node : nodeSet) {
+         ret.addAll(node.springsAttached
+               .stream()
+               .filter(spring -> spring.isContainedIn(nodeSet, fullyContained))
+               .collect(Collectors.toList()));
+      }
+      return ret;
+   }
+
    /**
     * Returns the {@link Tree} object whose root is the specified {@link Node}.
     * Tree elements are NOT copied; a statement like getSubtreeAt(n).root == n will return true
@@ -59,22 +112,9 @@ public class Tree {
    public Tree getSubtreeAt(Node subtreeRoot) {
       Set<Node> n = getSubtreeNodes(subtreeRoot);
       Set<Spring> s = getSpringsContainedIn(n);
-      Stroke a = new Stroke(stroke.getActionsContainedIn(n, true), this.stroke.interval);
+      Stroke a = stroke.getStrokeContainedIn(n, true);
       return new Tree(subtreeRoot, n, s, a, p, world);
    }
-
-   /**
-    * Returns the {@link Tree} consisting of elements (nodes, springs, strokeActions) that are
-    * members of this tree but not the tree rooted at the specified node.
-    * Tree elements are NOT copied; a statement like getSubtreeAt(n).root == n will return true
-    * The returned tree is rooted at this tree's root.
-    * The result for Node n can be thought of as the relative complement of the tree returned by getSubtreeAt(n)
-    * in this tree.
-    *
-    * @param subtreeRoot the root of the tree whose elements will not be included in the result
-    * @return the tree that contains (elements of this)/(elements of the tree rooted at the specified node)
-    */
-
 
    /**
     * Returns a deep copy of getSubtreeAt(subtreeRoot) with elements added to the specified verlet physics world
@@ -104,25 +144,6 @@ public class Tree {
       return tp.parseTree(false);
    }
 
-   public static Set<Node> getSubtreeNodes(Node subtreeRoot) {   //set includes current root node
-      if (subtreeRoot.boneChildren == null) {
-         Set<Node> s = new LinkedHashSet<>();
-         s.add(subtreeRoot);
-         return s;
-      }
-      Set<Node> ret = new LinkedHashSet<>();
-      Queue<Node> Q = new PriorityQueue<>(subtreeRoot.boneChildren);
-
-      ret.add(subtreeRoot);
-
-      while (!Q.isEmpty()) {
-         Node curr = Q.remove();
-         ret.add(curr);
-         Q.addAll(curr.boneChildren);
-      }
-      return ret;
-   }
-
    public Set<Spring> getSprings(Predicate<? super Spring> springFilter) {
       if (springFilter == null) {
          return this.springs;
@@ -132,28 +153,6 @@ public class Tree {
                .filter(springFilter)
                .collect(Collectors.toCollection(LinkedHashSet::new));
       }
-   }
-
-   public static Set<Spring> getSpringsContainedIn(Set<Node> nodeSet, Predicate<? super Spring> springFilter) {
-      return getSpringsContainedIn(nodeSet)
-            .stream()
-            .filter(springFilter)
-            .collect(Collectors.toCollection(LinkedHashSet::new));
-   }
-
-   public static Set<Spring> getSpringsContainedIn(Set<Node> nodeSet) {
-      return getSpringsContainedIn(nodeSet, true);
-   }
-
-   public static Set<Spring> getSpringsContainedIn(Set<Node> nodeSet, boolean fullyContained) {
-      Set<Spring> ret = new LinkedHashSet<>();
-      for (Node node : nodeSet) {
-         ret.addAll(node.springsAttached
-               .stream()
-               .filter(spring -> spring.isContainedIn(nodeSet, fullyContained))
-               .collect(Collectors.toList()));
-      }
-      return ret;
    }
 
    public Set<Spring> getOwnSpringsContainedIn(Set<Node> nodeSet) {
@@ -194,9 +193,6 @@ public class Tree {
             .append(" { ")
             .append(stringifySprings(names, springFilter))
             .append(" }\n")
-            .append(stroke.actions.size())
-            .append(" : ")
-            .append(stroke.interval)
             .append(" { ")
             .append(includeStroke ? stroke.stringify(names) : "")
             .append(" } ");
@@ -253,10 +249,11 @@ public class Tree {
     * <tt>{@link Node#boneChildren boneChildren}</tt>, <tt>{@link Node#boneParent boneParent}</tt>,
     * <tt>{@link Node#springsAttached springsAttached}</tt>) references to elements in
     * <tt>nodeSubset</tt> and springs with these elements as endpoints.
-    * @param nodeSubset          The set of nodes to remove from this tree's references
-    * @param properSubtree       mark true to enable optimizations ONLY IF the nodes in <tt>nodeSubset</tt>
-    *                            represent a <i>complete</i> tree rooted at the first node in the set returned by
-    *                            <tt>nodeSubset.iterator().next()</tt>
+    *
+    * @param nodeSubset    The set of nodes to remove from this tree's references
+    * @param properSubtree mark true to enable optimizations ONLY IF the nodes in <tt>nodeSubset</tt>
+    *                      represent a <i>complete</i> tree rooted at the first node in the set returned by
+    *                      <tt>nodeSubset.iterator().next()</tt>
     */
    private void removeReferencesTo(Set<Node> nodeSubset, boolean properSubtree) {
 
@@ -268,7 +265,7 @@ public class Tree {
       if (properSubtree) {
          Node subtreeRoot = nodeSubset.iterator().next();
          if (subtreeRoot.boneParent != null) {
-         subtreeRoot.boneParent.boneChildren.remove(subtreeRoot);
+            subtreeRoot.boneParent.boneChildren.remove(subtreeRoot);
          }
       }
 
@@ -285,8 +282,10 @@ public class Tree {
       springSubset.forEach(world::removeSpring);
       nodeSubset.forEach(world::removeParticle);
 
-      List<StrokeAction> subtreeActions = stroke.getActionsContainedIn(nodeSubset, false);
-      stroke.actions.removeAll(subtreeActions);
+      for (int behavior = 0; behavior < 3; behavior++) {
+         List<StrokeAction> subtreeActions = stroke.getActionsContainedIn(behavior, nodeSubset, false);
+         stroke.actionsList.get(behavior).removeAll(subtreeActions);
+      }
    }
 
    /**
@@ -294,6 +293,7 @@ public class Tree {
     * tree's <tt>{@link Tree#nodes}</tt>, <tt>{@link Tree#springs}</tt>, and <tt>{@link Tree#stroke}</tt>.
     * The returned subtree has a reference to the same <tt>{@link Tree#world}</tt> as this tree. The only elements
     * removed from this world are springs with exactly 1 endpoint in the returned subtree.
+    *
     * @param subtreeRoot the root of the tree to be separated
     * @return the separated Tree at <tt>subtreeRoot</tt>
     */
@@ -323,13 +323,17 @@ public class Tree {
       }
       for (Spring hcs : halfContainedSprings) {
          world.removeSpring(hcs);
-      springSubset.remove(hcs);
+         springSubset.remove(hcs);
       }
-      List<StrokeAction> subtreeActions = stroke.getActionsContainedIn(nodeSubset, false);
-      stroke.actions.removeAll(subtreeActions);
-      List<StrokeAction> fullyContainedActions = subtreeActions.stream()
+      List<List<StrokeAction>> fullyContainedActionsList = new ArrayList<>(3);
+      for (int behavior = 0; behavior < 3; behavior++) {
+         List<StrokeAction> subtreeActions = stroke.getActionsContainedIn(behavior, nodeSubset, false);
+         stroke.actionsList.get(behavior).removeAll(subtreeActions);
+         fullyContainedActionsList.add(behavior, subtreeActions.stream()
             .filter(strokeAction -> strokeAction.actionIsContainedIn(nodeSubset, true))
-            .collect(Collectors.toCollection(ArrayList::new));
-      return new Tree(nodeSubset, springSubset, new Stroke(fullyContainedActions, stroke.interval), p, world);
+               .collect(Collectors.toCollection(ArrayList::new)));
+      }
+      Stroke newStroke = new Stroke(fullyContainedActionsList, stroke.intervals);
+      return new Tree(nodeSubset, springSubset, newStroke, p, world);
    }
 }

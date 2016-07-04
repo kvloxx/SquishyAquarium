@@ -38,13 +38,13 @@ public class Spring extends VerletSpring2D implements SquishyBodyPart {
 //            return;
             case MUSCLE:
                p.stroke(229, 115, 115, p.map(state, 0, 1, 255, 0));
-//            p.stroke(200, 0, 0);
+//            p.executeNextStrokeAction(200, 0, 0);
                break;
             case TISSUE:
                return;
-//            p.stroke(0xffE450E4);
+//            p.executeNextStrokeAction(0xffE450E4);
 
-//            p.stroke(50, 250, 50, 200);
+//            p.executeNextStrokeAction(50, 250, 50, 200);
 //            break;
          }
          p.line(this.a.x, this.a.y, this.b.x, this.b.y);
@@ -165,6 +165,11 @@ public class Spring extends VerletSpring2D implements SquishyBodyPart {
 
    public float getAverageLen() {
       return (minLen + maxLen) / 2.0f;
+   }
+
+   public void reset() {
+      this.state = 0.5f;
+      setRestLength((maxLen + minLen) / 2f);
    }
 
    enum Type {

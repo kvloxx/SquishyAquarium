@@ -4,7 +4,10 @@ import processing.core.PApplet;
 import toxi.geom.Vec2D;
 import toxi.physics2d.VerletParticle2D;
 
-import java.util.*;
+import java.util.LinkedHashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 
 import static processing.core.PApplet.map;
 
@@ -25,7 +28,7 @@ public class Node extends VerletParticle2D implements SquishyBodyPart {
 
 
    Node(float x, float y, int fill, PApplet p) {
-      super(new Vec2D(x, y));
+      super(new Vec2D(x, y), 1.0f);
       recordNormal();
       this.diff = null;
       this.p = p;
@@ -93,6 +96,12 @@ public class Node extends VerletParticle2D implements SquishyBodyPart {
 
    void addNeighbor(Node n) {
       neighbors.add(n);
+   }
+
+   @Override
+   public void reset() {
+      this.weight = 1.9f;
+      this.state = 1.0f;
    }
 
    String stringifySubtreeNodeSet(Map<SquishyBodyPart, String> nodeNames) {

@@ -46,8 +46,7 @@ public class World extends VerletPhysics2D {
             body.M+=m;
          }
          body.COM.scaleSelf(1 / body.M);
-         body.updateHeading();
-         body.recordDisplacementAndRotation();
+         body.update();
       }
    }
 }

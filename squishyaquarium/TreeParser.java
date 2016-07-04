@@ -12,8 +12,6 @@ import static squishyaquarium.TreeParser.TokenType.*;
  */
 public class TreeParser {
 
-   private Random rand;
-
    //Mutation Odds
    private final float duplication = 1 / 50f;
    private final float translocation = 1 / 45f;
@@ -24,7 +22,7 @@ public class TreeParser {
    private final float forget = 1 / 20f;
    private final float swap = 1 / 30f;
    private final float permutation = 1 / 40f;
-
+   private Random rand;
    private PApplet p;
    private World world;
    private String input;
@@ -35,23 +33,9 @@ public class TreeParser {
    private Set<Node> globalNodeSet;
    private Set<Spring> globalSpringSet;
    private List<StrokeAction> globalStrokeList;
+   private Stroke globalStroke;
 
    private float mutationRate = 0;
-
-   enum TokenType { //"Token Type"
-      LEFT_CURLY, RIGHT_CURLY,
-      LEFT_SQUARE, RIGHT_SQUARE,
-      LEFT_ROUND, RIGHT_ROUND,
-      COLON,
-      NODE_NAME,
-      BONE_NAME, MUSCLE_NAME, TISSUE_NAME,
-      FLOAT, HEX,
-      NUM_NODES, NUM_SPRINGS, NUM_STROKES,
-      STR, LEN,
-      BRANCH_P, EXTEND_P, INV_NODE_P,
-      INTERVAL,
-      UNRECOGNIZED, EOF
-   }
 
    TreeParser(String input, PApplet p, World world) {
       this.rand = new Random();
@@ -133,24 +117,30 @@ public class TreeParser {
       float pmtRate = mutationRate * permutation;
       float dscRate = mutationRate * discover;
       float fgtRate = mutationRate * forget;
-      ArrayList<StrokeAction> swp = null;
-      boolean permute = false;
-      int discoverCount = 0;
-      int forgetCount = 0;
-
-      for (StrokeAction action : sb.stroke.actions) {
-         if (r() < swpRate) {
-            if (swp == null) swp = new ArrayList<>();
-            swp.add(action);
-         }
-         if (r() < pmtRate) {
-            permute = true;
-         }
-         if (r() < dscRate) {
-            discoverCount++;
-         }
-         if (r() < fgtRate) {
-            forgetCount++;
+      ArrayList<ArrayList<Integer>> swp = null;
+      boolean[] permute = {false, false, false};
+      int[] discoverCount = {0, 0, 0};
+      int[] forgetCount = {0, 0, 0};
+      for (int behavior = 0; behavior < 3; behavior++) {
+         for (int actionIndex = 0; actionIndex < sb.stroke.actionsList.get(behavior).size(); actionIndex++) {
+            if (r() < swpRate) {
+               if (swp == null) {
+                  swp = new ArrayList<>();
+                  for (int i = 0; i < 3; i++) {
+                     swp.add(new ArrayList<>());
+                  }
+               }
+               swp.get(behavior).add(actionIndex);
+            }
+            if (r() < pmtRate) {
+               permute[behavior] = true;
+            }
+            if (r() < dscRate) {
+               discoverCount[behavior]++;
+            }
+            if (r() < fgtRate) {
+               forgetCount[behavior]++;
+            }
          }
       }
       /*
@@ -188,25 +178,27 @@ public class TreeParser {
             sb.randomlyShiftSubtreeAt(node);
          }
       }
-      sb.settle(relaxCount);
-      sb.stroke.blendActionsWith(sb.makeStrokeActionList(discoverCount));
       if (relaxCount > 0) {
-         System.out.println("relax");
+         sb.settle(relaxCount);
       }
-      sb.stroke.removeActions(forgetCount);
-      if (discoverCount > 0) {
-         System.out.println("discover");
-      }
-      if (permute) {
-         System.out.println("perm");
-         sb.stroke.shuffle();
-      } else if (swp != null) {
-         System.out.println("swp");
-         for (StrokeAction action : swp) {
-            sb.stroke.randomlySwap(action);
+      for (int behavior = 0; behavior < 3; behavior++) {
+         if (discoverCount[behavior] > 0) {
+            sb.stroke.blendActionsWith(behavior, sb.makeStrokeActionList(discoverCount[behavior]));
+         }
+         if (forgetCount[behavior] > 0) {
+            sb.stroke.removeActions(behavior, forgetCount[behavior]);
+         }
+         if (permute[behavior]) {
+            sb.stroke.shuffle(behavior);
+         } else if (swp != null) {
+            for (int j = 0; j < 3; j++) {
+               List<Integer> swpj = swp.get(j);
+               for (Integer actionIndex : swpj) {
+                  sb.stroke.randomlySwap(behavior, actionIndex);
+               }
+            }
          }
       }
-
    }
 
    private float r() {
@@ -333,14 +325,7 @@ public class TreeParser {
       parseNodeSet(sloppy);
       match(FLOAT);
       parseSpringSet(sloppy);
-      match(FLOAT);
-      match(COLON);
-      int interval = Integer.parseInt(currentToken.data);
-      if (sloppy) {
-         interval = (int) zap(interval, 2);
-      }
-      match(FLOAT);
-      parseStrokeSet(sloppy);
+      parseStroke(sloppy);
       for (Node node : globalNodeSet) {
          world.addParticle(node);
          node.scaleVelocity(0);
@@ -348,8 +333,31 @@ public class TreeParser {
       for (Spring spring : globalSpringSet) {
          world.addSpring(spring);
       }
-      Stroke strk = new Stroke(globalStrokeList, interval);
-      return new Tree(globalNodeSet, globalSpringSet, strk, p, world);
+      return new Tree(globalNodeSet, globalSpringSet, globalStroke, p, world);
+   }
+
+   private void parseStroke(boolean sloppy) {
+      match(LEFT_CURLY);
+      List<List<StrokeAction>> strokeActionList = new ArrayList<>();
+      int[] intervals = new int[3];
+      for (int i = 0; i < 3; i++) {
+         globalStrokeList = new LinkedList<>();
+         match(LEFT_SQUARE);
+         int strkLsti = Integer.parseInt(currentToken.data);
+         match(FLOAT);
+         match(COLON);
+         int interval = Integer.parseInt(currentToken.data);
+         if (sloppy) {
+            interval = (int) zap(interval, 2);
+         }
+         intervals[strkLsti] = interval;
+         match(FLOAT);
+         match(RIGHT_SQUARE);
+         parseStrokeSet(sloppy);
+         strokeActionList.add(strkLsti, globalStrokeList);
+      }
+      globalStroke = new Stroke(strokeActionList, intervals);
+      match(RIGHT_CURLY);
    }
 
    private void parseStrokeSet(boolean sloppy) {
@@ -375,7 +383,7 @@ public class TreeParser {
             break;
          case LEFT_ROUND:
             match(LEFT_ROUND);
-            parseStroke(sloppy);
+            parseStrokeAction(sloppy);
             match(RIGHT_ROUND);
             parseStrokeList(sloppy);
             break;
@@ -385,7 +393,7 @@ public class TreeParser {
       }
    }
 
-   private StrokeAction parseStroke(boolean sloppy) {
+   private StrokeAction parseStrokeAction(boolean sloppy) {
       SquishyBodyPart part = null;
       switch (currentToken.type) {
          case MUSCLE_NAME:
@@ -397,7 +405,7 @@ public class TreeParser {
             match(NODE_NAME);
             break;
          default:
-            System.out.println("AH WHAT HAPPENED parseStroke()");
+            System.out.println("AH WHAT HAPPENED parseStrokeAction()");
             break;
       }
       float state = Float.parseFloat(currentToken.data);
@@ -654,6 +662,20 @@ public class TreeParser {
       return true;
    }
 
+   enum TokenType { //"Token Type"
+      LEFT_CURLY, RIGHT_CURLY,
+      LEFT_SQUARE, RIGHT_SQUARE,
+      LEFT_ROUND, RIGHT_ROUND,
+      COLON,
+      NODE_NAME,
+      BONE_NAME, MUSCLE_NAME, TISSUE_NAME,
+      FLOAT, HEX,
+      NUM_NODES, NUM_SPRINGS, NUM_STROKES,
+      STR, LEN,
+      BRANCH_P, EXTEND_P, INV_NODE_P,
+      INTERVAL,
+      UNRECOGNIZED, EOF
+   }
 
    private class Token {
       String data;
@@ -694,11 +716,11 @@ public class TreeParser {
                return BRANCH_P;
             case "bone-length":
                return LEN;
-            case "stroke-extend-prob":
+            case "executeNextStrokeAction-extend-prob":
                return EXTEND_P;
             case "involves-node-prob":
                return INV_NODE_P;
-            case "stroke-interval":
+            case "executeNextStrokeAction-interval":
                return INTERVAL;
          }
          if (data.matches("@\\d+")) { //node prefix @, followed by digits

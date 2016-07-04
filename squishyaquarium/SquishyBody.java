@@ -25,14 +25,6 @@ public class SquishyBody extends Tree {
     */
    public float M = 0;
    public float normalM = 0;
-   private Vec2D maxDisp = new Vec2D(0, 0);
-   private float maxDist = 0;
-   private float maxRotation = 0;
-   private Vec2D normalHeadingVec;
-   private Vec2D disp = new Vec2D(0, 0);
-   private boolean angB = true;
-   private boolean angR = true;
-   private int revs = 0;
    public float rotation = 0;
    float normalHeading;
    //@formatter:off
@@ -44,13 +36,21 @@ public class SquishyBody extends Tree {
    float branchingProb           = 0.4f;
    int minStrokeActions          = 10;
    float strokeExtendProb        = 0.5f;
-   float actionInvolvesNodeProb  = 0.5f;
+   float actionInvolvesNodeProb  = 0.4f;
    //@formatter:on
    float boneStr = 0.9f;
    float muscStr = 0.2f;
    float tissStr = 0.01f;
    int maxStrokeInterval = 10;
    int minStrokeInterval = 2;
+   private Vec2D maxDisp = new Vec2D(0, 0);
+   private float maxDist = 0;
+   private float maxRotation = 0;
+   private Vec2D normalHeadingVec;
+   private Vec2D disp = new Vec2D(0, 0);
+   private boolean angB = true;
+   private boolean angR = true;
+   private int revs = 0;
    private boolean showDebug = false;
 
    public SquishyBody(Tree tree, PApplet p, World world) {
@@ -71,7 +71,7 @@ public class SquishyBody extends Tree {
 
       springs.addAll(ossify(nodes));
       springs.addAll(fleshOut(nodes));
-      stroke = new Stroke(makeStrokeActionList(), (int) p.random(minStrokeInterval, maxStrokeInterval));
+      stroke = makeRandomStroke();
 
       computeNormals();
       this.COM = new Vec2D(normalCOM.x, normalCOM.y);
@@ -104,7 +104,7 @@ public class SquishyBody extends Tree {
       if (stroke != null) {
          this.stroke = stroke;
       } else {
-         this.stroke = new Stroke(makeStrokeActionList(), (int) p.random(minStrokeInterval, maxStrokeInterval));
+         this.stroke = makeRandomStroke();
       }
       computeNormals();
       this.COM = new Vec2D(normalCOM.x, normalCOM.y);
@@ -226,7 +226,7 @@ public class SquishyBody extends Tree {
             .append(maxBoneLength)
             .append(" ]\nbranching-prob ")
             .append(branchingProb)
-            .append("\nstroke-extend-prob ")
+            .append("\nexecuteNextStrokeAction-extend-prob ")
             .append(strokeExtendProb)
             .append("\ninvolves-node-prob ")
             .append(actionInvolvesNodeProb)
@@ -415,6 +415,15 @@ public class SquishyBody extends Tree {
       return s;
    }
 
+   Stroke makeRandomStroke() {
+      return new Stroke(makeStrokeActionList(), makeStrokeActionList(), makeStrokeActionList(), (int) p.random(minStrokeInterval, maxStrokeInterval), (int) p.random(minStrokeInterval, maxStrokeInterval), (int) p.random(minStrokeInterval, maxStrokeInterval));
+   }
+
+   public void setBehavior(int behavior) {
+      stroke.setCurrentBehavior(behavior);
+      nodes.forEach(Node::reset);
+   }
+
    List<StrokeAction> makeStrokeActionList(int length) {
       Node[] nodesArray = nodes.toArray(new Node[0]);
       Spring[] musclesArray = getSprings(Spring::isMuscle).toArray(new Spring[0]);
@@ -461,7 +470,7 @@ public class SquishyBody extends Tree {
       }
 
       /*Future self-- we're doing this part to randomize the order of all actions in the
-      * stroke. Obviously this is not the most efficient way to perform this operation,
+      * executeNextStrokeAction. Obviously this is not the most efficient way to perform this operation,
       * but it saves us the hassle of shuffling a list in place and only needs
       * to be performed once for the lifetime of any creature, so the impact is fairly minimal.*/
       ArrayList<StrokeAction> retActions = new ArrayList<>();
@@ -483,25 +492,23 @@ public class SquishyBody extends Tree {
          p.noStroke();
          p.fill(0x88888888);
          if (maxRotation > 0) {
-            p.arc(COM.x, COM.y, 40, 40, normalHeading, normalHeading + maxRotation,PConstants.PIE);
-         }
-         else{
-            p.arc(COM.x, COM.y, 40, 40, normalHeading -PConstants.TWO_PI+maxRotation,normalHeading,PConstants.PIE);
+            p.arc(COM.x, COM.y, 40, 40, normalHeading, normalHeading + maxRotation, PConstants.PIE);
+         } else {
+            p.arc(COM.x, COM.y, 40, 40, normalHeading - PConstants.TWO_PI + maxRotation, normalHeading, PConstants.PIE);
 
          }
          p.fill(0x88FF18DE);
          if (rotation > 0) {
             p.arc(COM.x, COM.y, 40, 40, normalHeading, normalHeading + Utils.positiveAngleBetween(normalHeadingVec,
-                  headingVec),PConstants.PIE);
-         }
-         else{
-            p.arc(COM.x, COM.y, 40, 40, normalHeading -PConstants.TWO_PI+Utils.positiveAngleBetween(normalHeadingVec,
-                  headingVec),normalHeading,PConstants.PIE);
+                  headingVec), PConstants.PIE);
+         } else {
+            p.arc(COM.x, COM.y, 40, 40, normalHeading - PConstants.TWO_PI + Utils.positiveAngleBetween(normalHeadingVec,
+                  headingVec), normalHeading, PConstants.PIE);
 
          }
 
          p.fill(0xffFF18DE);
-         p.text(String.format("%.2f", rotation)+ " : "+String.format("%.2f", maxRotation), COM.x + 15, COM.y + 30);
+         p.text(String.format("%.2f", rotation) + " : " + String.format("%.2f", maxRotation), COM.x + 15, COM.y + 30);
          p.stroke(0xff00E414);
          p.fill(0xff00E414);
          p.arc(COM.x, COM.y, 15, 15, 0, PConstants.HALF_PI);
@@ -509,11 +516,14 @@ public class SquishyBody extends Tree {
          p.noFill();
          p.arc(COM.x, COM.y, 15, 15, PConstants.HALF_PI, PConstants.PI);
          p.arc(COM.x, COM.y, 15, 15, PConstants.HALF_PI * 3, PConstants.TWO_PI);
-         p.text(String.format("%.2f", M) + " : " +String.format("%.2f", root.getWeight()) + " : " + String.format("%.2f",
+         p.text(String.format("%.2f", M) + " : " + String.format("%.2f", root.getWeight()) + " : " + String.format("%.2f",
                maxDist), COM.x + 15, COM.y + 10);
          p.stroke(0xffFF18DE);
          p.line(root.x, root.y, root.x + headingVec.x, root.y + headingVec.y);
          p.stroke(0xff0e829f);
+         p.fill(0xff0e829f);
+         p.text(String.format("%.2f", ((float) stroke.getCurrentBehavior())), COM.x +
+               15, COM.y + 50);
          p.line(root.x, root.y, root.x + normalHeadingVec.x, root.y + normalHeadingVec.y);
          p.stroke(0xff00ffff);
          Vec2D disp = COM.sub(normalCOM).getNormalizedTo(maxDist);
@@ -522,10 +532,6 @@ public class SquishyBody extends Tree {
          p.stroke(100);
          p.line(c, d, COM.x, COM.y);
       }
-   }
-
-   public void stroke() {
-      stroke.stroke();
    }
 
    @Override
@@ -564,6 +570,12 @@ public class SquishyBody extends Tree {
 
    void updateHeading() {
       headingVec = root.sub(COM);
+   }
+
+   public void update() {
+      updateHeading();
+      recordDisplacementAndRotation();
+      stroke.strokeIfReady(p.frameCount);
    }
 
    void recordDisplacementAndRotation() {
