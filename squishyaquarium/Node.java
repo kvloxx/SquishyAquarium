@@ -18,7 +18,6 @@ public class Node extends VerletParticle2D implements SquishyBodyPart {
    int fill;
    float d = 10;
    Vec2D normal;
-   Vec2D diff;
    Node boneParent;
    Set<Node> boneChildren;
    Set<Node> neighbors;
@@ -27,10 +26,17 @@ public class Node extends VerletParticle2D implements SquishyBodyPart {
    private float state;
 
 
+   Node(PApplet p) {
+      this(0, 0, p);
+   }
+
+   Node(float x, float y, PApplet p) {
+      this(x, y, p.color(p.random(256), p.random(256), p.random(256)), p);
+   }
+
    Node(float x, float y, int fill, PApplet p) {
       super(new Vec2D(x, y), 1.0f);
       recordNormal();
-      this.diff = null;
       this.p = p;
       this.fill = fill;
       this.w = getWeight();
@@ -40,12 +46,13 @@ public class Node extends VerletParticle2D implements SquishyBodyPart {
       this.springsAttached = new LinkedHashSet<>();
    }
 
-   Node(float x, float y, PApplet p) {
-      this(x, y, p.color(p.random(256), p.random(256), p.random(256)), p);
+   public void recordNormal() {
+      this.normal = new Vec2D(x, y);
    }
 
-   Node(PApplet p) {
-      this(0, 0, p);
+   public void updateData(float x, float y, float w, int fill) {
+      this.fill = fill;
+      updateData(x, y, w);
    }
 
    public void updateData(float x, float y, float w) {   //"updata"
@@ -53,12 +60,24 @@ public class Node extends VerletParticle2D implements SquishyBodyPart {
       this.y=y;
       recordNormal();
       this.w=w;
-      this.changeState(this.state);
+      changeState(state);
    }
 
-   public void updateData(float x, float y, float w, int fill) {
-      this.fill=fill;
-      updateData(x, y, w);
+   @Override
+   public void changeState(float state) {
+      this.state = state;
+      setWeight(map(state, 0, 1, 0, w));
+   }
+
+   @Override
+   public boolean isContainedIn(Set<Node> nodeSet, boolean fullyContained) {
+      return nodeSet.contains(this);
+   }
+
+   @Override
+   public void resetState() {
+      this.weight = 1.9f;
+      this.state = 1.0f;
    }
 
    void display() {
@@ -74,10 +93,6 @@ public class Node extends VerletParticle2D implements SquishyBodyPart {
       } else {
          p.ellipse(x, y, d, d);
       }
-   }
-   public void recordNormal(){
-      this.normal = new Vec2D(this.x, this.y);
-      this.diff = boneParent == null ? new Vec2D(0,0) : this.normal.sub(boneParent.normal);
    }
 
    void addBoneParent(Node n) {
@@ -98,12 +113,6 @@ public class Node extends VerletParticle2D implements SquishyBodyPart {
       neighbors.add(n);
    }
 
-   @Override
-   public void reset() {
-      this.weight = 1.9f;
-      this.state = 1.0f;
-   }
-
    String stringifySubtreeNodeSet(Map<SquishyBodyPart, String> nodeNames) {
       StringBuilder sb = new StringBuilder();
       String thisString = nodeNames.get(this);
@@ -116,7 +125,7 @@ public class Node extends VerletParticle2D implements SquishyBodyPart {
             .append(" ")
             .append(getDataString())
             .append(" { ");
-      for (Node child : this.boneChildren) {
+      for (Node child : boneChildren) {
          sb.append(child.stringifySubtreeNodeSet(nodeNames));
       }
       sb.append(" } ");
@@ -126,7 +135,7 @@ public class Node extends VerletParticle2D implements SquishyBodyPart {
    Set<Node> getSubtreeNodeSet(){
       Set<Node> ret = new LinkedHashSet<>();
       ret.add(this);
-      for (Node child : this.boneChildren) {
+      for (Node child : boneChildren) {
          ret.addAll(child.getSubtreeNodeSet());
       }
       return ret;
@@ -154,25 +163,9 @@ public class Node extends VerletParticle2D implements SquishyBodyPart {
       oR.x = oP.x + (o.x - oP.x) * cos(theta) - (o.y - oP.y) * sin(theta)
       oR.y = oP.y + (o.x - oP.x) * sin(theta) + (o.y - oP.y) * cos(theta)
       */
-      x = pivot.x + (x - pivot.x) * p.cos(theta) - (y - pivot.y) * p.sin(theta);
-      y = pivot.y + (x - pivot.x) * p.sin(theta) + (y - pivot.y) * p.cos(theta);
+      x = pivot.x + (x - pivot.x) * PApplet.cos(theta) - (y - pivot.y) * PApplet.sin(theta);
+      y = pivot.y + (x - pivot.x) * PApplet.sin(theta) + (y - pivot.y) * PApplet.cos(theta);
       recordNormal();
-   }
-
-   @Override
-   public void changeState(float state) {
-      this.state = state;
-      this.setWeight(map(state, 0, 1, 0, w));
-   }
-
-   @Override
-   public boolean isContainedIn(Set<Node> nodeSet, boolean fullyContained) {
-      return nodeSet.contains(this);
-   }
-
-   @Override
-   public String toString() {
-      return "Node{"+x+", "+y+", : "+w+"}";
    }
 
    public void attachSpring(Spring s) {
@@ -189,13 +182,23 @@ public class Node extends VerletParticle2D implements SquishyBodyPart {
    }
 
    @Override
+   public boolean equals(Object obj) {
+      return (obj instanceof Node && ((Node) obj).nodeID.equals(nodeID));
+   }
+
+   @Override
    public int hashCode() {
       return nodeID.hashCode();
    }
 
    @Override
-   public boolean equals(Object obj) {
-       return (obj instanceof Node && ((Node) obj).nodeID.equals(nodeID));
+   public String toString() {
+      return "Node{" + x + ", " + y + ", : " + w + "}";
+   }
+
+   public void resetPositionAndVelocity() {
+      set(normal);
+      scaleVelocity(0);
    }
 }
   

@@ -13,27 +13,27 @@ import static squishyaquarium.TreeParser.TokenType.*;
 public class TreeParser {
 
    //Mutation Odds
-   private final float duplication = 1 / 50f;
+   private final float duplication   = 1 / 50f;
    private final float translocation = 1 / 45f;
-   private final float deletion = 1 / 25f;
-   private final float addition = 1 / 25f;
-   private final float relaxation = 1 / 20f;
-   private final float discover = 1 / 20f;
-   private final float forget = 1 / 20f;
-   private final float swap = 1 / 30f;
-   private final float permutation = 1 / 40f;
-   private Random rand;
-   private PApplet p;
-   private World world;
-   private String input;
-   private ArrayList<Token> tokens;
-   private Token currentToken;
-   private Iterator<Token> tokenIterator;
+   private final float deletion      = 1 / 25f;
+   private final float addition      = 1 / 25f;
+   private final float relaxation    = 1 / 20f;
+   private final float discover      = 1 / 20f;
+   private final float forget        = 1 / 20f;
+   private final float swap          = 1 / 30f;
+   private final float permutation   = 1 / 40f;
+   private Random                           rand;
+   private PApplet                          p;
+   private World                            world;
+   private String                           input;
+   private ArrayList<Token>                 tokens;
+   private Token                            currentToken;
+   private Iterator<Token>                  tokenIterator;
    private HashMap<String, SquishyBodyPart> hashedSquishyParts;
-   private Set<Node> globalNodeSet;
-   private Set<Spring> globalSpringSet;
-   private List<StrokeAction> globalStrokeList;
-   private Stroke globalStroke;
+   private Set<Node>                        globalNodeSet;
+   private Set<Spring>                      globalSpringSet;
+   private List<StrokeAction>               globalStrokeActionList;
+   private List<Stroke>                     globalStrokes;
 
    private float mutationRate = 0;
 
@@ -48,10 +48,15 @@ public class TreeParser {
          tokens.add(new Token(dataString));
       }
       tokens.add(new Token("EOF"));
+      initializeLists();
+   }
+
+   private void initializeLists() {
       hashedSquishyParts = new HashMap<>();
       globalNodeSet = new LinkedHashSet<>();
       globalSpringSet = new LinkedHashSet<>();
-      globalStrokeList = new ArrayList<>();
+      globalStrokeActionList = new ArrayList<>();
+      globalStrokes = new ArrayList<>();
    }
 
    private void reset() {
@@ -63,14 +68,11 @@ public class TreeParser {
       tokens.add(new Token("EOF"));
       tokenIterator = tokens.iterator();
       currentToken = tokenIterator.next();
-      hashedSquishyParts = new HashMap<>();
-      globalNodeSet = new LinkedHashSet<>();
-      globalSpringSet = new LinkedHashSet<>();
-      globalStrokeList = new ArrayList<>();
+      initializeLists();
    }
 
-   SquishyBody sloppyParseSquishyBody(float mutationRate) {
-      this.reset();
+   SquishyBody parseSquishyBody(float mutationRate) {
+      reset();
       this.mutationRate = mutationRate;
       SquishyBody sb = parseSquishyBody(true);
       mutate(sb);
@@ -78,7 +80,6 @@ public class TreeParser {
    }
 
    private void mutate(SquishyBody sb) {
-      //TODO: one of these is probably causing abnormal behavior in the physics sim; probably forgot to remove a
       // spring from the world or something.
       float delRate = mutationRate * deletion;
       float addRate = mutationRate * addition;
@@ -117,31 +118,47 @@ public class TreeParser {
       float pmtRate = mutationRate * permutation;
       float dscRate = mutationRate * discover;
       float fgtRate = mutationRate * forget;
-      ArrayList<ArrayList<Integer>> swp = null;
-      boolean[] permute = {false, false, false};
-      int[] discoverCount = {0, 0, 0};
-      int[] forgetCount = {0, 0, 0};
-      for (int behavior = 0; behavior < 3; behavior++) {
-         for (int actionIndex = 0; actionIndex < sb.stroke.actionsList.get(behavior).size(); actionIndex++) {
+      for (Stroke stroke : sb.strokes) {
+
+         ArrayList<StrokeAction> swp = null;
+         boolean permute = false;
+         int discoverCount = 0;
+         int forgetCount = 0;
+
+         for (StrokeAction action : stroke.actions) {
             if (r() < swpRate) {
-               if (swp == null) {
-                  swp = new ArrayList<>();
-                  for (int i = 0; i < 3; i++) {
-                     swp.add(new ArrayList<>());
-                  }
-               }
-               swp.get(behavior).add(actionIndex);
+               if (swp == null) swp = new ArrayList<>();
+               swp.add(action);
             }
             if (r() < pmtRate) {
-               permute[behavior] = true;
+               permute = true;
             }
             if (r() < dscRate) {
-               discoverCount[behavior]++;
+               discoverCount++;
             }
             if (r() < fgtRate) {
-               forgetCount[behavior]++;
+               forgetCount++;
             }
          }
+
+         stroke.blendActionsWith(sb.makeStrokeActionList(discoverCount));
+         if (relaxCount > 0) {
+            System.out.println("relax");
+         }
+         stroke.removeActions(forgetCount);
+         if (discoverCount > 0) {
+            System.out.println("discover");
+         }
+         if (permute) {
+            System.out.println("perm");
+            stroke.shuffle();
+         } else if (swp != null) {
+            System.out.println("swp");
+            for (StrokeAction action : swp) {
+               stroke.randomlySwap(action);
+            }
+         }
+
       }
       /*
       deletion
@@ -180,24 +197,6 @@ public class TreeParser {
       }
       if (relaxCount > 0) {
          sb.settle(relaxCount);
-      }
-      for (int behavior = 0; behavior < 3; behavior++) {
-         if (discoverCount[behavior] > 0) {
-            sb.stroke.blendActionsWith(behavior, sb.makeStrokeActionList(discoverCount[behavior]));
-         }
-         if (forgetCount[behavior] > 0) {
-            sb.stroke.removeActions(behavior, forgetCount[behavior]);
-         }
-         if (permute[behavior]) {
-            sb.stroke.shuffle(behavior);
-         } else if (swp != null) {
-            for (int j = 0; j < 3; j++) {
-               List<Integer> swpj = swp.get(j);
-               for (Integer actionIndex : swpj) {
-                  sb.stroke.randomlySwap(behavior, actionIndex);
-               }
-            }
-         }
       }
    }
 
@@ -270,7 +269,7 @@ public class TreeParser {
    }
 
    public SquishyBody parseSquishyBody(boolean sloppy) {
-      this.reset();
+      reset();
       float bstr, mstr, tstr, minl, maxl, branchp, extp, invnodep;
       match(LEFT_CURLY);
       match(STR);
@@ -316,7 +315,7 @@ public class TreeParser {
    }
 
    Tree parseTree(boolean sloppy) {
-      this.reset();
+      reset();
       return parseTreeNoReset(sloppy);
    }
 
@@ -325,7 +324,7 @@ public class TreeParser {
       parseNodeSet(sloppy);
       match(FLOAT);
       parseSpringSet(sloppy);
-      parseStroke(sloppy);
+      parseStrokes(sloppy);
       for (Node node : globalNodeSet) {
          world.addParticle(node);
          node.scaleVelocity(0);
@@ -333,31 +332,40 @@ public class TreeParser {
       for (Spring spring : globalSpringSet) {
          world.addSpring(spring);
       }
-      return new Tree(globalNodeSet, globalSpringSet, globalStroke, p, world);
+      return new Tree(globalNodeSet, globalSpringSet, globalStrokes, p, world);
    }
 
-   private void parseStroke(boolean sloppy) {
+   private void parseStrokes(boolean sloppy) {
       match(LEFT_CURLY);
-      List<List<StrokeAction>> strokeActionList = new ArrayList<>();
-      int[] intervals = new int[3];
-      for (int i = 0; i < 3; i++) {
-         globalStrokeList = new LinkedList<>();
-         match(LEFT_SQUARE);
-         int strkLsti = Integer.parseInt(currentToken.data);
-         match(FLOAT);
-         match(COLON);
-         int interval = Integer.parseInt(currentToken.data);
-         if (sloppy) {
-            interval = (int) zap(interval, 2);
-         }
-         intervals[strkLsti] = interval;
-         match(FLOAT);
-         match(RIGHT_SQUARE);
-         parseStrokeSet(sloppy);
-         strokeActionList.add(strkLsti, globalStrokeList);
-      }
-      globalStroke = new Stroke(strokeActionList, intervals);
+      parseStrokeSetList(sloppy);
       match(RIGHT_CURLY);
+   }
+
+   private void parseStrokeSetList(boolean sloppy) {
+      switch (currentToken.type) {
+         case RIGHT_CURLY:
+            //epsilon production
+            break;
+         case LEFT_SQUARE:
+            match(LEFT_SQUARE);
+            globalStrokeActionList = new LinkedList<>();
+            int strokeListI = Integer.parseInt(currentToken.data);
+            match(FLOAT);
+            match(COLON);
+            int interval = Integer.parseInt(currentToken.data);
+            if (sloppy) {
+               interval = (int) zap(interval, 2);
+            }
+            match(FLOAT);
+            match(RIGHT_SQUARE);
+            parseStrokeSet(sloppy);
+            globalStrokes.add(strokeListI, new Stroke(globalStrokeActionList, interval));
+            parseStrokeSetList(sloppy);
+            break;
+         default:
+            System.out.println("Something went wrong in parseStrokeSet");
+            break;
+      }
    }
 
    private void parseStrokeSet(boolean sloppy) {
@@ -414,7 +422,7 @@ public class TreeParser {
       }
       match(FLOAT);
       StrokeAction ret = new StrokeAction(part, state);
-      globalStrokeList.add(ret);
+      globalStrokeActionList.add(ret);
       return ret;
    }
 
@@ -678,7 +686,7 @@ public class TreeParser {
    }
 
    private class Token {
-      String data;
+      String    data;
       TokenType type;
 
       Token(String data) {

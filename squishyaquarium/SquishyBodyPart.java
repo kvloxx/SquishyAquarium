@@ -8,5 +8,6 @@ import java.util.Set;
 interface SquishyBodyPart {
    void changeState(float state);
    boolean isContainedIn(Set<Node> nodeSet, boolean fullyContained);
-   void reset();
+
+   void resetState();
 }

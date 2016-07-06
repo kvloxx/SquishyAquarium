@@ -14,13 +14,13 @@ public class SquishyAquarium extends PApplet {
    SquishyBody squash, squesh;
    ArrayList<SquishyBody> squishes;
    ArrayList<SquishyBody> squoshes;
-   int squashIdx = 0;
-   int numSquishes = 5;
-   Vec2D lol = new Vec2D(1, 0);
-   int revolutions = 0;
-   int TorB = -1; //Bottom is -1, top is +1
-   int LorR = 1;  //Left is -1, right is +1
-   float lastArc = 0;
+   int   squashIdx    = 0;
+   int   numSquishes  = 5;
+   Vec2D lol          = new Vec2D(1, 0);
+   int   revolutions  = 0;
+   int   TorB         = -1; //Bottom is -1, top is +1
+   int   LorR         = 1;  //Left is -1, right is +1
+   float lastArc      = 0;
    float clockwiseArc = 0;
 
    public static void main(String _args[]) {
@@ -56,22 +56,27 @@ public class SquishyAquarium extends PApplet {
 //            "23 : 2 { ( @1 0.5508533 ) ( $M0 0.69540834 ) ( $M1 0.076572 ) ( $M5 0.058719397 ) ( @1 0.17666692 ) ( $M6 0.31214994 ) ( $M0 0.82248557 ) ( $M2 0.7595699 ) ( @1 0.77338225 ) ( $M5 0.85834444 ) ( $M6 0.25341743 ) ( $M5 0.18914849 ) ( @3 0.13213545 ) ( $M2 0.61908174 ) ( @3 0.47565866 ) ( $M2 0.93632734 ) ( $M2 0.91321754 ) ( $M1 0.50061196 ) ( $M2 0.30432367 ) ( @1 0.19906503 ) ( $M2 0.31636977 ) ( $M0 0.04903984 ) ( $M2 0.9210909 )  } \n" +
 //            "}", this, world);
       squash = new SquishyBody(this, world);
+
+//      squash.computeStrokeTransformationVectors();
 //      squash = to.parseSquishyBody(false);
+      SquishyBody v;
       squishes.add(squash);
+      squishes.add(v = (squash.copy()));
+
 
 //      SquishyBody copy = squash.copy();
 //      copy.executeNextStrokeAction.currentBehavior=Stroke.ROTATE_NEGATIVE;
 //      squishes.add(copy);
 //      squash.getRandomNode().fill = 0xff8822ff;
 
-      ArrayList<SquishyBody> bodies = new ArrayList<>();
-      for (int i = 0; i < 10; i++) {
-
-      }
+//      for (int i = 0; i < 10; i++) {
+//         squishes.add(squash.copyWithNewBehavior());
+//      }
 //      SquishyBody squoosh = squash.copy();
 //      SquishyBody squoosh = new SquishyBody(this, world);
 //      squishes.add(squoosh);
       System.out.println(squash.stringify());
+      System.out.println(v);
 //      System.out.println(squoosh.stringify());
 //      for (SquishyBody squeshy : SquishyBody.mate(squash, squoosh, this, world)) {
 //         squishes.add(squeshy);
@@ -99,14 +104,13 @@ public class SquishyAquarium extends PApplet {
 //
 //      System.out.println("squoosh = " + squoosh);
 
-
-      for (int i = 0; i < 10; i++) {
+//      for (int i = 0; i < 10; i++) {
 //         System.out.println("i = " + i);
-//         SquishyBody sb = tp.sloppyParseSquishyBody(0.1f);
+//         SquishyBody sb = tp.parseSquishyBody(0.1f);
 //         sb.calm();
 //         squishes.add(sb);
 
-      }
+//      }
 //      nodeIterator = squash.nodes.iterator();
 //      nodeIterator.next();
 //      nd = nodeIterator.next();
@@ -137,6 +141,7 @@ public class SquishyAquarium extends PApplet {
       for (SquishyBody squish : squishes) {
          squish.showDebug();
          world.addBody(squish);
+//         world.addBody(squish);
       }
 
    }
@@ -144,6 +149,7 @@ public class SquishyAquarium extends PApplet {
    public void draw() {
 
       background(0);
+
       world.update();
 
       if (squishes != null) {
@@ -169,13 +175,13 @@ public class SquishyAquarium extends PApplet {
          squashIdx++;
          squashIdx %= squishes.size();
          squash = squishes.get(squashIdx);
+         world.update();
          return;
+
       }
 
       if (event.getKeyCode() == RIGHT) {
-         int a;
-         squash.stroke.setCurrentBehavior(a = (squash.stroke.getCurrentBehavior() + 1)%3);
-         System.out.println(a);
+         squash.nextBehavior();
          return;
       } else {
          init();
